@@ -18,7 +18,7 @@ redis[asyncio]==5.2.0            # Async Redis client
 # ─── Auth ────────────────────────────────────────────────────
 pyjwt==2.10.0                    # JWT tokens
 bcrypt==4.2.0                    # Password hashing
-supabase==2.9.1                  # Supabase client for OAuth
+supabase==2.10.1                  # Supabase client for OAuth
 
 # ─── AI ──────────────────────────────────────────────────────
 openai==1.57.0                   # OpenAI API client
