@@ -1,0 +1,245 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── CSS Variables ─────────────────────────────────────────── */
+:root {
+  --font-display: 'Playfair Display';
+  --font-sans:    'DM Sans';
+  --font-mono:    'DM Mono';
+
+  /* Surface layers */
+  --bg-base:      #0A0908;
+  --bg-raised:    #141210;
+  --bg-overlay:   #1E1B18;
+  --bg-muted:     #2A2520;
+
+  /* Text */
+  --text-primary:   #F5F1ED;
+  --text-secondary: #C4BBB5;
+  --text-muted:     #7A6E65;
+  --text-ghost:     #3D3630;
+
+  /* Accent */
+  --accent:         #F59E0B;
+  --accent-dim:     #D97706;
+  --accent-glow:    rgba(245, 158, 11, 0.25);
+
+  /* Status */
+  --status-rise:  #4ADE80;
+  --status-hold:  #94A3B8;
+  --status-fall:  #F87171;
+
+  /* Borders */
+  --border:       rgba(255, 255, 255, 0.07);
+  --border-warm:  rgba(245, 158, 11, 0.15);
+  --border-focus: rgba(245, 158, 11, 0.5);
+}
+
+/* ── Base ──────────────────────────────────────────────────── */
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar        { width: 4px; height: 4px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: var(--text-ghost); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* Selection */
+::selection {
+  background: rgba(245, 158, 11, 0.25);
+  color: var(--text-primary);
+}
+
+/* Focus */
+:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+/* ── Typography ────────────────────────────────────────────── */
+.font-display { font-family: var(--font-display), Georgia, serif; }
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display), Georgia, serif;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+/* ── Utility classes ───────────────────────────────────────── */
+
+/* Surfaces */
+.surface         { background: var(--bg-raised); border: 1px solid var(--border); }
+.surface-overlay { background: var(--bg-overlay); border: 1px solid var(--border); }
+.surface-muted   { background: var(--bg-muted); }
+
+/* Glass effect */
+.glass {
+  background: rgba(20, 18, 16, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+}
+
+/* Gradient text */
+.text-gradient {
+  background: linear-gradient(135deg, #F5F1ED 0%, #A09690 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-gold {
+  background: linear-gradient(135deg, #FCD34D 0%, #F59E0B 60%, #D97706 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Grain overlay */
+.grain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* Ambient glow */
+.glow-gold {
+  box-shadow: 0 0 40px rgba(245, 158, 11, 0.15),
+              0 0 80px rgba(245, 158, 11, 0.08);
+}
+
+/* Dividers */
+.divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border), transparent);
+}
+
+/* Animation delays */
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+
+/* ── Component Base Styles ─────────────────────────────────── */
+
+/* Input */
+.input-base {
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input-base::placeholder { color: var(--text-muted); }
+
+.input-base:focus {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+/* Button base */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 0.9375rem;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  white-space: nowrap;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #0A0908;
+  font-weight: 600;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #FCD34D;
+  box-shadow: 0 0 24px rgba(245,158,11,0.3);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--bg-overlay);
+  color: var(--text-primary);
+  border-color: rgba(255,255,255,0.12);
+}
+
+.btn-danger {
+  background: rgba(239, 68, 68, 0.15);
+  color: #F87171;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+/* Score ring */
+.score-ring {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Momentum badge */
+.momentum-rising  { color: var(--status-rise); }
+.momentum-holding { color: var(--status-hold); }
+.momentum-declining { color: var(--status-fall); }
+.momentum-critical  { color: var(--status-fall); animation: pulse 2s infinite; }
+
+/* Page transitions */
+.page-enter {
+  animation: fadeUp 0.45s ease-out both;
+}
