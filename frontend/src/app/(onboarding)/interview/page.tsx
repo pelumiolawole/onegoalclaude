@@ -75,7 +75,7 @@ export default function InterviewPage() {
 
       if (res.is_complete) {
         await refreshUser()
-        setTimeout(() => router.push('/onboarding/goal'), 1200)
+        setTimeout(() => router.push('/onboarding/goal-setup'), 1200)
       }
     } catch (err) {
       setMessages([

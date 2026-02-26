@@ -235,22 +235,22 @@ class ApiClient {
         needs_clarification: boolean
         clarifying_questions: string[]
         strategy: any | null
-      }>('/onboarding/goal', {
+      }>('/onboarding/goal-setup', {
         method: 'POST',
         body: JSON.stringify({ raw_goal }),
       }),
 
     clarifyGoal: (raw_goal: string, answers: string) =>
-      this.request<any>('/onboarding/goal/clarify', {
+      this.request<any>('/onboarding/goal-setup/clarify', {
         method: 'POST',
         body: JSON.stringify({ raw_goal, answers }),
       }),
 
     previewStrategy: () =>
-      this.request<any>('/onboarding/goal/preview'),
+      this.request<any>('/onboarding/goal-setup/preview'),
 
     confirmGoal: () =>
-      this.request<{ status: string }>('/onboarding/goal/confirm', { method: 'POST' }),
+      this.request<{ status: string }>('/onboarding/goal-setup/confirm', { method: 'POST' }),
 
     activate: () =>
       this.request<{ status: string; message: string; tasks_generated: number }>('/onboarding/activate', { method: 'POST' }),

@@ -14,7 +14,7 @@ export default function PreviewPage() {
   useEffect(() => {
     api.onboarding.previewStrategy()
       .then(setStrategy)
-      .catch(() => router.push('/onboarding/goal'))
+      .catch(() => router.push('/onboarding/goal-setup'))
       .finally(() => setLoading(false))
   }, [])
 
@@ -145,7 +145,7 @@ export default function PreviewPage() {
             {confirming ? 'Confirming…' : 'This is my strategy — activate'}
           </button>
           <button
-            onClick={() => router.push('/onboarding/goal')}
+            onClick={() => router.push('/onboarding/goal-setup')}
             className="btn btn-ghost h-12"
           >
             Change my goal

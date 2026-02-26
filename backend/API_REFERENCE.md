@@ -33,10 +33,10 @@ Authorization: Bearer <access_token>
 ```
 1. GET  /onboarding/status
 2. POST /onboarding/interview/message  (repeat until is_complete=true)
-3. POST /onboarding/goal
-4. POST /onboarding/goal/clarify       (only if needs_clarification=true)
-5. GET  /onboarding/goal/preview
-6. POST /onboarding/goal/confirm
+3. POST /onboarding/goal-setup
+4. POST /onboarding/goal-setup/clarify       (only if needs_clarification=true)
+5. GET  /onboarding/goal-setup/preview
+6. POST /onboarding/goal-setup/confirm
 7. POST /onboarding/activate
 ```
 
@@ -46,10 +46,10 @@ Authorization: Bearer <access_token>
 | POST | `/onboarding/interview/message` | Send interview message |
 | GET | `/onboarding/interview/state` | Restore conversation history |
 | POST | `/onboarding/interview/restart` | Start interview over |
-| POST | `/onboarding/goal` | Submit goal for decomposition |
-| POST | `/onboarding/goal/clarify` | Answer clarifying questions |
-| GET | `/onboarding/goal/preview` | Review strategy before confirming |
-| POST | `/onboarding/goal/confirm` | Confirm strategy |
+| POST | `/onboarding/goal-setup` | Submit goal for decomposition |
+| POST | `/onboarding/goal-setup/clarify` | Answer clarifying questions |
+| GET | `/onboarding/goal-setup/preview` | Review strategy before confirming |
+| POST | `/onboarding/goal-setup/confirm` | Confirm strategy |
 | POST | `/onboarding/activate` | Activate + generate first tasks |
 
 ### Example: Interview message
@@ -70,7 +70,7 @@ Response:
 
 ### Example: Goal submission
 ```json
-POST /onboarding/goal
+POST /onboarding/goal-setup
 {
   "raw_goal": "Build a SaaS product that generates $10k MRR within 12 months"
 }
@@ -253,9 +253,9 @@ while (true) {
 ```
 1.  POST /auth/signup
 2.  POST /onboarding/interview/message  (8-15 exchanges)
-3.  POST /onboarding/goal
-4.  GET  /onboarding/goal/preview
-5.  POST /onboarding/goal/confirm
+3.  POST /onboarding/goal-setup
+4.  GET  /onboarding/goal-setup/preview
+5.  POST /onboarding/goal-setup/confirm
 6.  POST /onboarding/activate
     → User is now active
 
