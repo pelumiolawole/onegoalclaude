@@ -303,8 +303,8 @@ Return only NEW or UPDATED fields. Return empty object {{}} if nothing new was s
             text("""
                 UPDATE onboarding_interview_state
                 SET current_phase = :phase,
-                    messages = :messages::jsonb,
-                    extracted_data = :extracted::jsonb,
+                    messages = CAST(:messages AS jsonb),
+                    extracted_data = CAST(:extracted AS jsonb),
                     is_complete = :is_complete,
                     completed_at = CASE WHEN :is_complete THEN NOW() ELSE completed_at END
                 WHERE user_id = :user_id
