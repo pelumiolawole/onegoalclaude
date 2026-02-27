@@ -43,13 +43,13 @@ class User(Base):
     display_name: Mapped[str | None] = mapped_column(String(255))
     avatar_url: Mapped[str | None] = mapped_column(Text)
     auth_provider: Mapped[AuthProvider] = mapped_column(
-        Enum(AuthProvider, name="auth_provider"),
+        Enum(AuthProvider, name="auth_provider", values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         default=AuthProvider.EMAIL,
     )
     auth_provider_id: Mapped[str | None] = mapped_column(String(255), index=True)
     onboarding_status: Mapped[OnboardingStatus] = mapped_column(
-        Enum(OnboardingStatus, name="onboarding_status"),
+        Enum(OnboardingStatus, name="onboarding_status", values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         default=OnboardingStatus.CREATED,
     )
