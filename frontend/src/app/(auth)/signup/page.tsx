@@ -79,7 +79,7 @@ export default function SignupPage() {
           Begin here
         </h1>
         <p className="text-[#7A6E65] mb-8">
-          One goal. One identity. Your transformation starts now.
+          The interview takes about 15 minutes. That's where everything starts.
         </p>
 
         {error && (

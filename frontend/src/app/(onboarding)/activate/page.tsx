@@ -80,11 +80,11 @@ export default function ActivatePage() {
         </h1>
 
         <p className="text-[#A09690] text-lg leading-relaxed mb-4">
-          Your strategy is built. Your first task will be waiting when you wake up tomorrow.
+          Your strategy is set. Your first task will be ready tomorrow morning.
         </p>
         <p className="text-[#7A6E65] leading-relaxed mb-12">
-          Every day you'll have one task, one reflection, and access to your coach.
-          The person you need to become is built one day at a time.
+          Every day: one task, one reflection, and your coach. That's the whole system.
+          Small and consistent beats big and occasional every time.
         </p>
 
         {/* Commitments */}
@@ -111,7 +111,7 @@ export default function ActivatePage() {
           {activating ? (
             <span className="flex items-center gap-2 justify-center">
               <span className="w-5 h-5 border-2 border-[#0A0908]/30 border-t-[#0A0908] rounded-full animate-spin" />
-              Activating your journey…
+              Setting things up…
             </span>
           ) : (
             'Begin my transformation'
@@ -123,8 +123,8 @@ export default function ActivatePage() {
 }
 
 const COMMITMENTS = [
-  'One daily becoming task — designed for who you need to become',
-  'Daily reflection to deepen your self-understanding',
-  'A coach that knows you and your goal intimately',
-  'A weekly evolution letter showing who you\'re becoming',
+  'One daily task — built around who you need to become, not just what you need to do',
+  'Daily reflection to track what\'s working and what isn\'t',
+  'A coach that knows your goal, your history, and your current objective',
+  'A weekly review showing your patterns and adjusting what comes next',
 ]

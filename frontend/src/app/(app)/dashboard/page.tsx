@@ -193,7 +193,7 @@ export default function DashboardPage() {
               className="bg-[#F59E0B]/5 border border-[#F59E0B]/15 rounded-2xl p-5 cursor-pointer hover:border-[#F59E0B]/25 transition-colors"
             >
               <p className="text-[#F59E0B] text-xs uppercase tracking-widest mb-2 font-mono">
-                Weekly evolution letter
+                Weekly review
               </p>
               <p className="text-[#C4BBB5] text-sm">
                 Week of {data.latest_review.week_start} —{' '}

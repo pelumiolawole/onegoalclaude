@@ -91,11 +91,11 @@ function FloatingOrb({
 
 // ── Demo Interview Preview ─────────────────────────────────────
 const DEMO_MESSAGES = [
-  { role: 'ai', text: "Before we build your transformation strategy, I need to understand who you are. What's been most significant in your life lately?" },
-  { role: 'user', text: "I've been trying to launch my business for 2 years but keep getting stuck on perfectionism." },
-  { role: 'ai', text: "That's a telling pattern. Perfectionism is rarely about quality — it's usually about fear of being judged. What would you do differently if failure wasn't visible to others?" },
-  { role: 'user', text: "I'd just ship things and see what happens. I actually know what to do, I just don't do it." },
-  { role: 'ai', text: "That's the identity gap we need to close. You have the knowledge of a builder but you're operating as a planner. Let's define the one goal that forces you to cross that line." },
+  { role: 'ai', text: "Two years is a long time to be circling something. What's actually in the way — resources, or something else?" },
+  { role: 'user', text: "Honestly? I keep refining instead of shipping. I know what to do. I just don't do it." },
+  { role: 'ai', text: "That gap between knowing and doing is the only thing worth talking about. What does the version of you who ships look like day to day?" },
+  { role: 'user', text: "They make decisions faster. They don't wait to feel ready. They care less about looking stupid." },
+  { role: 'ai', text: "So the goal isn't to build a business. It's to stop being someone who waits for permission. Let's make that concrete." },
 ]
 
 function DemoPreview() {
@@ -229,16 +229,16 @@ export default function LandingPage() {
           'Everything in The Spark',
           'Unlimited AI Coach',
           'Full transformation scores',
-          'Weekly evolution reviews',
+          'Weekly reviews',
           'Reflection insights',
           'Goal history & archive',
         ],
-        cta: 'Begin Your Transformation',
+        cta: 'Get started',
         highlight: true,
       },
       {
         name: 'The Identity',
-        tagline: 'Maximum discipline. Zero excuses.',
+        tagline: 'Maximum discipline. No excuses.',
         price: '$8.99',
         period: '/month',
         features: [
@@ -280,16 +280,16 @@ export default function LandingPage() {
           'Everything in The Spark',
           'Unlimited AI Coach',
           'Full transformation scores',
-          'Weekly evolution reviews',
+          'Weekly reviews',
           'Reflection insights',
           'Goal history & archive',
         ],
-        cta: 'Begin Your Transformation',
+        cta: 'Get started',
         highlight: true,
       },
       {
         name: 'The Identity',
-        tagline: 'Maximum discipline. Zero excuses.',
+        tagline: 'Maximum discipline. No excuses.',
         price: '$6.99',
         period: '/month',
         savings: 'Save 22%',
@@ -328,10 +328,8 @@ export default function LandingPage() {
             href="/signup"
             className="text-sm px-4 py-2 rounded-xl bg-[#F59E0B] text-[#0A0908] font-medium hover:bg-[#D97706] transition-all hover:scale-[1.02] active:scale-[0.98]"
           >
-            Begin Your Transformation
+            Get started
           </Link>
-        </div>
-      </motion.nav>
 
       {/* ── Hero ──────────────────────────────────────────── */}
       <section className="relative min-h-screen flex flex-col items-center justify-center px-6 pt-24 pb-16 text-center overflow-hidden">
@@ -360,7 +358,7 @@ export default function LandingPage() {
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#F59E0B]/20 bg-[#F59E0B]/5 text-[#F59E0B] text-xs tracking-widest uppercase mb-8"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] animate-pulse" />
-            Identity Transformation Platform
+            Identity-Based Goal System
           </motion.div>
 
           <motion.h1
@@ -380,9 +378,9 @@ export default function LandingPage() {
             transition={{ duration: 0.7, delay: 0.4 }}
             className="text-[#7A6E65] text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed"
           >
-            Most apps track what you do. OneGoal transforms who you are.
-            An AI that interviews you, understands you, and builds a daily
-            system around the person you're becoming.
+            Most apps track what you do. OneGoal works on who you are.
+            It starts with a real interview, builds a goal around your actual life,
+            and gives you one task every day that moves you toward the person you're trying to become.
           </motion.p>
 
           <motion.div
@@ -395,7 +393,7 @@ export default function LandingPage() {
               href="/signup"
               className="group w-full sm:w-auto px-8 py-4 rounded-2xl bg-[#F59E0B] text-[#0A0908] font-semibold text-base hover:bg-[#D97706] transition-all hover:scale-[1.03] active:scale-[0.98] flex items-center justify-center gap-2"
             >
-              Begin Your Transformation
+              Start the interview
               <motion.span
                 animate={{ x: [0, 4, 0] }}
                 transition={{ duration: 1.5, repeat: Infinity }}
@@ -418,9 +416,9 @@ export default function LandingPage() {
           className="relative z-10 mt-20 grid grid-cols-3 gap-8 max-w-lg mx-auto"
         >
           {[
-            { value: 'AI-Powered', label: 'Identity Coaching' },
-            { value: 'Identity-First', label: 'Not Just Tasks' },
-            { value: 'Zero Fluff', label: 'Pure Focus' },
+            { value: '1 Goal', label: 'Not a list' },
+            { value: 'Daily', label: 'Tasks built around you' },
+            { value: 'Free', label: 'To start' },
           ].map((stat) => (
             <div key={stat.label} className="text-center">
               <div className="font-display text-base md:text-lg text-[#F59E0B] mb-1">{stat.value}</div>
@@ -455,9 +453,9 @@ export default function LandingPage() {
               <span className="italic text-[#7A6E65]">an onboarding form.</span>
             </h2>
             <p className="text-[#5C524A] leading-relaxed mb-6">
-              The Discovery Interview is a real AI conversation that maps your life
-              direction, vision, strengths, and what holds you back. It builds your
-              identity profile — the foundation everything else is built on.
+              The Discovery Interview is a real conversation. The AI asks hard questions,
+              pushes back on vague answers, and builds a picture of who you actually are —
+              not who you think you want to be. Everything else runs on that.
             </p>
             <Link
               href="/signup"
@@ -489,21 +487,21 @@ export default function LandingPage() {
               {
                 step: '01',
                 title: 'The Discovery Interview',
-                description: 'A deep AI conversation that maps your life direction, vision, strengths, and what holds you back. This isn\'t onboarding — it\'s a mirror.',
+                description: 'A real AI conversation about your life, not a form. It asks uncomfortable questions, challenges your answers, and builds a profile of who you actually are right now.',
                 icon: '◎',
                 delay: 0,
               },
               {
                 step: '02',
                 title: 'Your One Goal',
-                description: 'From everything you share, the AI distills a single transformational goal and builds a strategy around who you need to become to achieve it.',
+                description: 'From the interview, the AI identifies one goal worth pursuing — and maps the identity gap between who you are and who you need to be to reach it.',
                 icon: '◈',
                 delay: 0.1,
               },
               {
                 step: '03',
                 title: 'Daily Identity Actions',
-                description: 'Every day, AI-generated tasks calibrated to your schedule, energy, and the exact identity shifts required. Show up. Become.',
+                description: 'Every morning, one task. Not a generic to-do — something calibrated to your goal, your current week, and the specific trait you\'re trying to build.',
                 icon: '◆',
                 delay: 0.2,
               },
@@ -540,12 +538,12 @@ export default function LandingPage() {
 
           <div className="grid md:grid-cols-2 gap-4">
             {[
-              { title: 'AI Discovery Interview', description: 'A real conversation that builds your identity profile. Not a form. A mirror.', icon: '🎯', delay: 0 },
-              { title: 'Identity-Aligned Goal Setting', description: 'Your One Goal is crafted from who you are and who you\'re becoming — not what you think you should want.', icon: '⚡', delay: 0.05 },
-              { title: 'AI Coach', description: 'Your accountability partner who knows your patterns, calls out your excuses, and keeps you moving.', icon: '🧠', delay: 0.1 },
-              { title: 'Daily Precision Tasks', description: 'AI-generated tasks every morning, calibrated to your schedule, energy, and identity gaps.', icon: '◆', delay: 0.15 },
-              { title: 'Transformation Score', description: 'A living score across consistency, depth, momentum, and alignment. See yourself changing in real time.', icon: '📈', delay: 0.2 },
-              { title: 'Weekly Evolution Reviews', description: 'The AI reviews your week, identifies patterns, and recalibrates your path forward.', icon: '🔄', delay: 0.25 },
+              { title: 'AI Discovery Interview', description: 'Not a questionnaire. A conversation that gets uncomfortable and specific. The AI uses your answers to build your identity profile from scratch.', icon: '🎯', delay: 0 },
+              { title: 'One Goal, Built From You', description: 'Your goal comes from the interview — not a template. It\'s specific to your life, your gaps, and where you actually are right now.', icon: '⚡', delay: 0.05 },
+              { title: 'AI Coach', description: 'Knows your goal, your history, and your patterns. Calls things out. Doesn\'t let you reframe avoidance as strategy.', icon: '🧠', delay: 0.1 },
+              { title: 'Daily Tasks', description: 'Generated each morning based on your current objective and the identity trait you\'re building. One task. Do it or explain why not.', icon: '◆', delay: 0.15 },
+              { title: 'Transformation Score', description: 'Tracks consistency, reflection depth, momentum, and alignment — updated daily. The number moves when you do.', icon: '📈', delay: 0.2 },
+              { title: 'Weekly Review', description: 'Every week the AI looks at what you did and didn\'t do, finds the pattern, and adjusts what comes next.', icon: '🔄', delay: 0.25 },
             ].map((feature) => (
               <Reveal key={feature.title} delay={feature.delay}>
                 <motion.div
@@ -569,19 +567,18 @@ export default function LandingPage() {
       <section className="px-6 py-24 bg-[#0D0B09]">
         <div className="max-w-5xl mx-auto">
           <Reveal className="text-center mb-16">
-            <p className="text-[#F59E0B] text-xs tracking-widest uppercase mb-4">Real Results</p>
+            <p className="text-[#F59E0B] text-xs tracking-widest uppercase mb-4">Early Users</p>
             <h2 className="font-display text-4xl md:text-5xl text-[#F5F1ED]">
-              Real people.{' '}
-              <span className="italic">Real transformation.</span>
+              What happened when they{' '}
+              <span className="italic">committed to one thing.</span>
             </h2>
-            <p className="text-[#5C524A] mt-4">No fluff. Just what happened when they stopped juggling and started becoming.</p>
           </Reveal>
 
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              { initials: 'MC', name: 'Marcus C.', role: 'Startup Founder', quote: 'I had 12 half-finished projects. The interview made me face what I was actually avoiding. One goal. Three months. I shipped more than the previous year combined.', delay: 0 },
-              { initials: 'SM', name: 'Sarah M.', role: 'Product Designer', quote: 'The AI Coach called me out the third time I postponed my goal. That level of accountability — knowing the system sees your patterns — changes everything.', delay: 0.1 },
-              { initials: 'AP', name: 'Aisha P.', role: 'Grad Student', quote: 'The discovery interview felt uncomfortably accurate. By week two, the daily tasks were so aligned it felt personal. Because they were.', delay: 0.2 },
+              { initials: 'MC', name: 'Marcus C.', role: 'Startup Founder', quote: 'I had 12 half-finished projects. The interview made me face what I was avoiding. I picked one. Three months later I shipped more than the whole previous year.', delay: 0 },
+              { initials: 'SM', name: 'Sarah M.', role: 'Product Designer', quote: 'The coach called me out the third time I postponed the same task. I didn\'t expect that. It had logged the pattern. That\'s when I stopped pretending I was busy.', delay: 0.1 },
+              { initials: 'AP', name: 'Aisha P.', role: 'Grad Student', quote: 'The interview asked things I\'d been avoiding for months. By week two the daily tasks felt personal. They were. That\'s the part I hadn\'t found in anything else.', delay: 0.2 },
             ].map((t) => (
               <Reveal key={t.name} delay={t.delay}>
                 <motion.div
@@ -718,8 +715,7 @@ export default function LandingPage() {
         <div className="max-w-3xl mx-auto">
           <Reveal className="text-center mb-16">
             <p className="text-[#F59E0B] text-xs tracking-widest uppercase mb-4">FAQ</p>
-            <h2 className="font-display text-4xl text-[#F5F1ED]">Questions? Answers.</h2>
-            <p className="text-[#5C524A] mt-4">No fluff. Just what you actually want to know.</p>
+            <h2 className="font-display text-4xl text-[#F5F1ED]">Common questions.</h2>
           </Reveal>
           <FAQList />
         </div>
@@ -745,7 +741,7 @@ export default function LandingPage() {
             href="/signup"
             className="inline-flex items-center gap-3 px-10 py-4 rounded-2xl bg-[#F59E0B] text-[#0A0908] font-semibold text-base hover:bg-[#D97706] transition-all hover:scale-[1.03] active:scale-[0.98]"
           >
-            Begin Your Transformation
+            Start the interview
             <motion.span animate={{ x: [0, 5, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>
               →
             </motion.span>
@@ -770,11 +766,11 @@ export default function LandingPage() {
 
 // ── FAQ Accordion ──────────────────────────────────────────────
 const FAQS = [
-  { q: 'Why only ONE goal? That seems limiting.', a: 'Because scattered focus is why most people never finish anything meaningful. One Goal forces you to decide what actually matters — and that decision, made clearly, is the beginning of transformation.' },
-  { q: 'What is the Discovery Interview?', a: 'It\'s a deep AI conversation — not a form — that maps your vision, strengths, frustrations, and daily life. The AI uses this to build your identity profile and craft a goal that\'s genuinely yours.' },
-  { q: 'How is this different from other productivity apps?', a: 'Most apps track tasks. OneGoal tracks transformation. The goal isn\'t to be more productive — it\'s to become the person who naturally achieves what you want.' },
-  { q: 'Can I change my goal?', a: 'On The Identity plan, you can re-interview anytime and reset your goal. On other plans, your goal can be refined through the AI Coach as your clarity deepens.' },
-  { q: 'Is there a refund policy?', a: 'Yes. All paid plans include a 14-day money-back guarantee. No questions asked.' },
+  { q: 'Why only ONE goal? That seems limiting.', a: 'Because most people fail by spreading thin, not by focusing too hard. One goal means one thing gets your full attention. The discipline of choosing is half the work.' },
+  { q: 'What is the Discovery Interview?', a: 'A conversation with the AI that takes 10–20 minutes. It asks about your life, your gaps, your history with goals, and what keeps getting in the way. Your answers build the profile everything else runs on.' },
+  { q: 'How is this different from other productivity apps?', a: 'Most apps track tasks. This one tracks who you\'re becoming. The goal isn\'t to get more done — it\'s to close the gap between who you are and who you need to be.' },
+  { q: 'Can I change my goal?', a: 'On The Identity plan you can re-interview and reset anytime. On other plans, the AI Coach can help you refine your goal as your thinking sharpens.' },
+  { q: 'Is there a refund policy?', a: 'Yes. All paid plans come with a 14-day money-back guarantee.' },
 ]
 
 function FAQList() {

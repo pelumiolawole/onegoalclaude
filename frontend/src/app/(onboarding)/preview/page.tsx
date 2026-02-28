@@ -40,7 +40,8 @@ export default function PreviewPage() {
           Your strategy
         </h1>
         <p className="text-[#7A6E65] mb-8">
-          Review what we've built together. This is the blueprint for your transformation.
+          This is what the AI built from your interview. Read it carefully — you can
+          go back and change your goal if it doesn't land right.
         </p>
 
         {/* Goal statement */}

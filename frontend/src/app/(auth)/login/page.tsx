@@ -50,6 +50,7 @@ export default function LoginPage() {
 
       {/* ── Left: Visual ────────────────────────────────── */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
+        {/* Ambient background */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#1a1208] via-[#0A0908] to-[#0A0908]" />
         <div
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full opacity-20"
@@ -57,10 +58,12 @@ export default function LoginPage() {
         />
 
         <div className="relative z-10 flex flex-col justify-between p-16 w-full">
+          {/* Logo */}
           <div>
             <span className="font-display text-2xl text-[#F5F1ED]">One Goal</span>
           </div>
 
+          {/* Quote */}
           <div className="max-w-sm">
             <motion.blockquote
               initial={{ opacity: 0, y: 20 }}
@@ -80,6 +83,7 @@ export default function LoginPage() {
             </motion.p>
           </div>
 
+          {/* Bottom note */}
           <p className="text-[#3D3630] text-sm">
             One Goal. One identity. One day at a time.
           </p>
@@ -94,6 +98,7 @@ export default function LoginPage() {
           transition={{ duration: 0.5 }}
           className="w-full max-w-sm"
         >
+          {/* Mobile logo */}
           <div className="lg:hidden mb-10">
             <span className="font-display text-2xl text-[#F5F1ED]">One Goal</span>
           </div>
@@ -102,7 +107,7 @@ export default function LoginPage() {
             Welcome back
           </h1>
           <p className="text-[#7A6E65] mb-8">
-            Continue your transformation.
+            Pick up where you left off.
           </p>
 
           {error && (
@@ -117,7 +122,9 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-[#A09690] text-sm mb-1.5">Email</label>
+              <label className="block text-[#A09690] text-sm mb-1.5">
+                Email
+              </label>
               <input
                 type="email"
                 value={email}
@@ -129,7 +136,9 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-[#A09690] text-sm mb-1.5">Password</label>
+              <label className="block text-[#A09690] text-sm mb-1.5">
+                Password
+              </label>
               <input
                 type="password"
                 value={password}
@@ -158,7 +167,7 @@ export default function LoginPage() {
           <p className="mt-6 text-center text-[#5C524A] text-sm">
             No account?{' '}
             <Link href="/signup" className="text-[#F59E0B] hover:text-[#FCD34D] transition-colors">
-              Start your journey
+              Create one
             </Link>
           </p>
         </motion.div>

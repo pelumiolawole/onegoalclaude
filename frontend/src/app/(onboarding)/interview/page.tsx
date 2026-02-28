@@ -80,7 +80,7 @@ export default function InterviewPage() {
     } catch (err) {
       setMessages([
         ...newMessages,
-        { role: 'assistant', content: "I didn't catch that. Could you try again?" },
+        { role: 'assistant', content: "Something went wrong on my end. Try sending that again." },
       ])
     } finally {
       setLoading(false)
@@ -111,12 +111,11 @@ export default function InterviewPage() {
             The Discovery Interview
           </h1>
           <p className="text-[#A09690] text-lg leading-relaxed mb-4">
-            Before we can build your transformation strategy, I need to understand you —
-            who you are, where you're headed, and what's been holding you back.
+            Before we build your strategy, the AI needs to understand you —
+            your situation, what you actually want, and what's been getting in the way.
           </p>
           <p className="text-[#7A6E65] mb-10">
-            This is a conversation, not a form. There are no right answers.
-            Take your time.
+            This is a conversation. Take your time with it.
           </p>
 
           <button

@@ -69,9 +69,8 @@ export default function GoalPage() {
               Define your One Goal
             </h1>
             <p className="text-[#7A6E65] mb-8 leading-relaxed">
-              Not a task. Not a project. The single outcome that, if achieved,
-              would mean the most to you right now. Say it in your own words —
-              we'll refine it together.
+              The single outcome that matters most to you right now. Write it in
+              plain language — rough is fine. The AI will work with what you give it.
             </p>
 
             {error && (
@@ -141,7 +140,7 @@ export default function GoalPage() {
               A few quick questions
             </h1>
             <p className="text-[#7A6E65] mb-8">
-              To build your strategy accurately, I need a bit more context.
+              The AI needs more to go on before it can build your strategy.
             </p>
 
             <div className="space-y-4 mb-8">
@@ -203,7 +202,7 @@ export default function GoalPage() {
 }
 
 const EXAMPLES = [
-  'Launch a SaaS product that generates meaningful revenue within a year',
-  'Get to a place where I feel strong, healthy, and energetic every single day',
-  'Build the discipline and focus to do deep work consistently every morning',
+  'Ship a SaaS product that generates real revenue within a year',
+  'Get to a place where I feel strong and have energy every day',
+  'Build the discipline to do deep work every morning without fighting myself',
 ]

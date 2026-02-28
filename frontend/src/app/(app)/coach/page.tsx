@@ -118,7 +118,7 @@ export default function CoachPage() {
         </div>
         <div>
           <p className="text-[#E8E2DC] text-sm font-medium">Your Coach</p>
-          <p className="text-[#3D3630] text-xs">Knows you and your goal deeply</p>
+          <p className="text-[#3D3630] text-xs">Knows your goal, your history, and where you are</p>
         </div>
       </div>
 
@@ -142,11 +142,11 @@ export default function CoachPage() {
               <span className="text-[#F59E0B] text-2xl">✦</span>
             </div>
             <h2 className="font-display text-xl text-[#E8E2DC] mb-3">
-              Your coach is ready
+              Your coach is here
             </h2>
             <p className="text-[#5C524A] text-sm leading-relaxed mb-6">
-              Ask anything about your goal, your progress, or what's holding you back.
-              Your coach knows your full context.
+              Ask about your goal, your week, or what's getting in the way.
+              It knows your full history — use that.
             </p>
             <div className="space-y-2">
               {STARTERS.map(s => (
