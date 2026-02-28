@@ -419,9 +419,9 @@ export default function LandingPage() {
           className="relative z-10 mt-20 grid grid-cols-3 gap-8 max-w-lg mx-auto"
         >
           {[
-            { value: '1 Goal', label: 'Not a list' },
-            { value: 'Daily', label: 'Tasks built around you' },
-            { value: 'Free', label: 'To start' },
+            { value: 'One Goal', label: 'Not ten half-finished ones' },
+            { value: 'Daily', label: 'Tasks built for who you\'re becoming' },
+            { value: 'Most people', label: 'Never commit to one thing fully' },
           ].map((stat) => (
             <div key={stat.label} className="text-center">
               <div className="font-display text-base md:text-lg text-[#F59E0B] mb-1">{stat.value}</div>
