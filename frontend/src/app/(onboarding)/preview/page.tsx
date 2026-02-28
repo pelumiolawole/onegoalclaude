@@ -22,7 +22,7 @@ export default function PreviewPage() {
     setConfirming(true)
     try {
       await api.onboarding.confirmGoal()
-      router.push('/onboarding/activate')
+      router.push('activate')
     } catch {
       setConfirming(false)
     }
