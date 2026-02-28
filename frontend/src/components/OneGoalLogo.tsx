@@ -8,7 +8,7 @@ interface Props {
 }
 
 export default function OneGoalLogo({
-  size = 32,
+  size = 60,
   showText = true,
   textSize = 'text-xl',
   className = '',
