@@ -27,7 +27,6 @@ export default function LoginPage() {
 
       // Route based on onboarding status
       const step = data.user.onboarding_step
-      console.log('onboarding_step:', step, 'user:', data.user)
       if (step === 0 || step === 1) {
         router.push('/interview')
       } else if (step === 2) {
@@ -36,11 +35,8 @@ export default function LoginPage() {
         router.push('/preview')
       } else if (step === 4) {
         router.push('/activate')
-      } else if (step === 5) {
-  router.push('/dashboard')
-} 
-else {
-  router.push('/interview') // safe fallback instead of /onboarding
+      } else {
+        router.push('/dashboard')
       }
     } catch (err: any) {
       setError(err.detail || 'Login failed. Check your email and password.')
@@ -54,7 +50,6 @@ else {
 
       {/* ── Left: Visual ────────────────────────────────── */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-        {/* Ambient background */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#1a1208] via-[#0A0908] to-[#0A0908]" />
         <div
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full opacity-20"
@@ -62,12 +57,10 @@ else {
         />
 
         <div className="relative z-10 flex flex-col justify-between p-16 w-full">
-          {/* Logo */}
           <div>
             <span className="font-display text-2xl text-[#F5F1ED]">One Goal</span>
           </div>
 
-          {/* Quote */}
           <div className="max-w-sm">
             <motion.blockquote
               initial={{ opacity: 0, y: 20 }}
@@ -87,7 +80,6 @@ else {
             </motion.p>
           </div>
 
-          {/* Bottom note */}
           <p className="text-[#3D3630] text-sm">
             One Goal. One identity. One day at a time.
           </p>
@@ -102,7 +94,6 @@ else {
           transition={{ duration: 0.5 }}
           className="w-full max-w-sm"
         >
-          {/* Mobile logo */}
           <div className="lg:hidden mb-10">
             <span className="font-display text-2xl text-[#F5F1ED]">One Goal</span>
           </div>
@@ -126,9 +117,7 @@ else {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-[#A09690] text-sm mb-1.5">
-                Email
-              </label>
+              <label className="block text-[#A09690] text-sm mb-1.5">Email</label>
               <input
                 type="email"
                 value={email}
@@ -140,9 +129,7 @@ else {
             </div>
 
             <div>
-              <label className="block text-[#A09690] text-sm mb-1.5">
-                Password
-              </label>
+              <label className="block text-[#A09690] text-sm mb-1.5">Password</label>
               <input
                 type="password"
                 value={password}

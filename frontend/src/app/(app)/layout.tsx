@@ -20,14 +20,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isAuthenticated) { router.replace('/login'); return }
-    // (app)/layout.tsx line 23
-if (user && user.onboarding_step < 5) {
-  const step = user.onboarding_step
-  if (step <= 1) router.replace('/interview')
-  else if (step === 2) router.replace('/goal-setup')
-  else if (step === 3) router.replace('/preview')
-  else router.replace('/activate')
-}
+    if (user && user.onboarding_step < 5) {
+      const step = user.onboarding_step
+      if (step <= 1) router.replace('/interview')
+      else if (step === 2) router.replace('/goal-setup')
+      else if (step === 3) router.replace('/preview')
+      else router.replace('/activate')
+    }
   }, [isAuthenticated, user])
 
   return (
@@ -35,12 +34,10 @@ if (user && user.onboarding_step < 5) {
 
       {/* ── Sidebar (desktop) ──────────────────────────── */}
       <aside className="hidden md:flex flex-col w-60 border-r border-white/5 p-5 shrink-0">
-        {/* Logo */}
         <div className="mb-10 px-2">
           <span className="font-display text-xl text-[#F5F1ED]">One Goal</span>
         </div>
 
-        {/* Nav */}
         <nav className="flex-1 space-y-1">
           {NAV.map(item => {
             const active = pathname === item.href || pathname.startsWith(item.href + '/')
@@ -61,7 +58,6 @@ if (user && user.onboarding_step < 5) {
           })}
         </nav>
 
-        {/* User */}
         {user && (
           <div className="border-t border-white/5 pt-4">
             <Link
@@ -120,8 +116,6 @@ if (user && user.onboarding_step < 5) {
     </div>
   )
 }
-
-// ── Icons ─────────────────────────────────────────────────────
 
 function HomeIcon({ size = 16 }: { size?: number }) {
   return (
