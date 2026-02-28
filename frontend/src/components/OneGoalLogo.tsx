@@ -3,20 +3,20 @@ import Image from 'next/image'
 interface Props {
   size?: number
   showText?: boolean
-  textSize?: string   // tailwind text-* class
+  textSize?: string
   className?: string
 }
 
 export default function OneGoalLogo({
-  size = 28,
+  size = 32,
   showText = true,
   textSize = 'text-xl',
   className = '',
 }: Props) {
   return (
-    <div className={`flex items-center gap-2.5 ${className}`}>
+    <div className={`flex items-center gap-2 ${className}`}>
       <Image
-        src="/logo-icon.jpeg"
+        src="/logo-icon.png"
         alt="One Goal"
         width={size}
         height={size}
