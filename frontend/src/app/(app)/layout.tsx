@@ -20,7 +20,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isAuthenticated) { router.replace('/login'); return }
-    if (user && user.onboarding_step < 5) router.replace('/onboarding')
+    // (app)/layout.tsx line 23
+if (user && user.onboarding_step < 5) {
+  const step = user.onboarding_step
+  if (step <= 1) router.replace('/interview')
+  else if (step === 2) router.replace('/goal-setup')
+  else if (step === 3) router.replace('/preview')
+  else router.replace('/activate')
+}
   }, [isAuthenticated, user])
 
   return (
