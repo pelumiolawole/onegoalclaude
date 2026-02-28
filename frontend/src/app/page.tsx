@@ -1,180 +1,820 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
-import { api } from '@/lib/api'
+import { motion, useScroll, useTransform, useInView, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '@/stores/auth'
 
-export default function LoginPage() {
-  const router = useRouter()
-  const setAuth = useAuthStore(s => s.setAuth)
+// ── Fade-in-on-scroll wrapper ──────────────────────────────────
+function Reveal({
+  children,
+  delay = 0,
+  className = '',
+}: {
+  children: React.ReactNode
+  delay?: number
+  className?: string
+}) {
+  const ref = useRef(null)
+  const inView = useInView(ref, { once: true, margin: '-80px' })
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: 32 }}
+      animate={inView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.65, delay, ease: [0.22, 1, 0.36, 1] }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  )
+}
 
-  const [email, setEmail]       = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError]       = useState('')
-  const [loading, setLoading]   = useState(false)
+// ── Typewriter ─────────────────────────────────────────────────
+function Typewriter({ words }: { words: string[] }) {
+  const [wordIndex, setWordIndex] = useState(0)
+  const [displayed, setDisplayed] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [paused, setPaused] = useState(false)
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-
-    try {
-      const data = await api.auth.login(email, password)
-      setAuth(data)
-
-      // Route based on onboarding status
-      const step = data.user.onboarding_step
-      if (step < 5) {
-        router.push('/login')
-      } else {
-        router.push('/dashboard')
-      }
-    } catch (err: any) {
-      setError(err.detail || 'Login failed. Check your email and password.')
-    } finally {
-      setLoading(false)
+  useEffect(() => {
+    const current = words[wordIndex]
+    if (paused) {
+      const t = setTimeout(() => { setPaused(false); setDeleting(true) }, 1800)
+      return () => clearTimeout(t)
     }
-  }
+    if (!deleting) {
+      if (displayed.length < current.length) {
+        const t = setTimeout(() => setDisplayed(current.slice(0, displayed.length + 1)), 60)
+        return () => clearTimeout(t)
+      } else {
+        setPaused(true)
+      }
+    } else {
+      if (displayed.length > 0) {
+        const t = setTimeout(() => setDisplayed(displayed.slice(0, -1)), 35)
+        return () => clearTimeout(t)
+      } else {
+        setDeleting(false)
+        setWordIndex((i) => (i + 1) % words.length)
+      }
+    }
+  }, [displayed, deleting, paused, wordIndex, words])
 
   return (
-    <div className="min-h-screen bg-[#0A0908] flex">
+    <span className="text-[#F59E0B] italic">
+      {displayed}
+      <span className="animate-pulse">|</span>
+    </span>
+  )
+}
 
-      {/* ── Left: Visual ────────────────────────────────── */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-        {/* Ambient background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#1a1208] via-[#0A0908] to-[#0A0908]" />
-        <div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full opacity-20"
-          style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.4) 0%, transparent 70%)' }}
-        />
+// ── Floating orb ───────────────────────────────────────────────
+function FloatingOrb({
+  size, top, left, delay, duration, opacity,
+}: {
+  size: number; top: string; left: string; delay: number; duration: number; opacity: number
+}) {
+  return (
+    <motion.div
+      className="absolute rounded-full pointer-events-none"
+      style={{
+        width: size, height: size, top, left, opacity,
+        background: 'radial-gradient(circle, rgba(245,158,11,0.4) 0%, transparent 70%)',
+      }}
+      animate={{ y: [0, -20, 0], scale: [1, 1.05, 1] }}
+      transition={{ duration, delay, repeat: Infinity, ease: 'easeInOut' }}
+    />
+  )
+}
 
-        <div className="relative z-10 flex flex-col justify-between p-16 w-full">
-          {/* Logo */}
-          <div>
-            <span className="font-display text-2xl text-[#F5F1ED]">One Goal</span>
-          </div>
+// ── Demo Interview Preview ─────────────────────────────────────
+const DEMO_MESSAGES = [
+  { role: 'ai', text: "Before we build your transformation strategy, I need to understand who you are. What's been most significant in your life lately?" },
+  { role: 'user', text: "I've been trying to launch my business for 2 years but keep getting stuck on perfectionism." },
+  { role: 'ai', text: "That's a telling pattern. Perfectionism is rarely about quality — it's usually about fear of being judged. What would you do differently if failure wasn't visible to others?" },
+  { role: 'user', text: "I'd just ship things and see what happens. I actually know what to do, I just don't do it." },
+  { role: 'ai', text: "That's the identity gap we need to close. You have the knowledge of a builder but you're operating as a planner. Let's define the one goal that forces you to cross that line." },
+]
 
-          {/* Quote */}
-          <div className="max-w-sm">
-            <motion.blockquote
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.8 }}
-              className="font-display text-3xl leading-snug text-[#E8E2DC] italic"
-            >
-              "You do not rise to the level of your goals. You fall to the level of your systems."
-            </motion.blockquote>
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.7 }}
-              className="mt-4 text-[#7A6E65] text-sm tracking-widest uppercase"
-            >
-              — James Clear
-            </motion.p>
-          </div>
+function DemoPreview() {
+  const [visibleCount, setVisibleCount] = useState(0)
+  const ref = useRef(null)
+  const inView = useInView(ref, { once: true, margin: '-100px' })
 
-          {/* Bottom note */}
-          <p className="text-[#3D3630] text-sm">
-            One Goal. One identity. One day at a time.
-          </p>
+  useEffect(() => {
+    if (!inView) return
+    const interval = setInterval(() => {
+      setVisibleCount(c => {
+        if (c >= DEMO_MESSAGES.length) { clearInterval(interval); return c }
+        return c + 1
+      })
+    }, 1200)
+    return () => clearInterval(interval)
+  }, [inView])
+
+  return (
+    <div
+      ref={ref}
+      className="relative rounded-2xl border border-white/8 bg-[#0D0B09] overflow-hidden"
+      style={{ boxShadow: '0 0 60px rgba(245,158,11,0.06)' }}
+    >
+      {/* Mock header */}
+      <div className="flex items-center gap-2 px-5 py-3 border-b border-white/5 bg-[#141210]">
+        <div className="flex gap-1.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-[#FF5F57]" />
+          <div className="w-2.5 h-2.5 rounded-full bg-[#FEBC2E]" />
+          <div className="w-2.5 h-2.5 rounded-full bg-[#28C840]" />
+        </div>
+        <span className="text-[#3D3630] text-xs ml-2 font-mono">The Discovery Interview</span>
+        <div className="ml-auto flex items-center gap-1.5">
+          <div className="w-1.5 h-1.5 rounded-full bg-[#4ADE80] animate-pulse" />
+          <span className="text-[#3D3630] text-xs">Live AI</span>
         </div>
       </div>
 
-      {/* ── Right: Form ─────────────────────────────────── */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="w-full max-w-sm"
-        >
-          {/* Mobile logo */}
-          <div className="lg:hidden mb-10">
-            <span className="font-display text-2xl text-[#F5F1ED]">One Goal</span>
-          </div>
-
-          <h1 className="font-display text-3xl text-[#F5F1ED] mb-2">
-            Welcome back
-          </h1>
-          <p className="text-[#7A6E65] mb-8">
-            Continue your transformation.
-          </p>
-
-          {error && (
+      {/* Messages */}
+      <div className="p-5 space-y-4 min-h-[320px]">
+        <AnimatePresence>
+          {DEMO_MESSAGES.slice(0, visibleCount).map((msg, i) => (
             <motion.div
-              initial={{ opacity: 0, y: -8 }}
+              key={i}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-6 px-4 py-3 rounded-xl bg-red-950/40 border border-red-900/30 text-red-400 text-sm"
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
-              {error}
+              <div
+                className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                  msg.role === 'ai'
+                    ? 'bg-[#1E1B18] text-[#C4BBB5] rounded-tl-sm'
+                    : 'bg-[#F59E0B]/15 border border-[#F59E0B]/20 text-[#F5F1ED] rounded-tr-sm'
+                }`}
+              >
+                {msg.text}
+              </div>
             </motion.div>
-          )}
+          ))}
+        </AnimatePresence>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-[#A09690] text-sm mb-1.5">
-                Email
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                className="input-base"
+        {/* Typing indicator */}
+        {visibleCount > 0 && visibleCount < DEMO_MESSAGES.length && DEMO_MESSAGES[visibleCount].role === 'ai' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex gap-1 px-4 py-3 bg-[#1E1B18] rounded-2xl rounded-tl-sm w-fit"
+          >
+            {[0, 1, 2].map(i => (
+              <motion.div
+                key={i}
+                className="w-1.5 h-1.5 rounded-full bg-[#5C524A]"
+                animate={{ y: [0, -4, 0] }}
+                transition={{ duration: 0.6, delay: i * 0.15, repeat: Infinity }}
               />
-            </div>
-
-            <div>
-              <label className="block text-[#A09690] text-sm mb-1.5">
-                Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                className="input-base"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn btn-primary w-full mt-6 h-12 text-base"
-            >
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <Spinner /> Signing in...
-                </span>
-              ) : (
-                'Sign in'
-              )}
-            </button>
-          </form>
-
-          <p className="mt-6 text-center text-[#5C524A] text-sm">
-            No account?{' '}
-            <Link href="/signup" className="text-[#F59E0B] hover:text-[#FCD34D] transition-colors">
-              Start your journey
-            </Link>
-          </p>
-        </motion.div>
+            ))}
+          </motion.div>
+        )}
       </div>
+
+      {/* Overlay fade at bottom */}
+      <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#0D0B09] to-transparent pointer-events-none" />
     </div>
   )
 }
 
-function Spinner() {
+// ── Main Page ──────────────────────────────────────────────────
+export default function LandingPage() {
+  const { isAuthenticated, user } = useAuthStore()
+  const router = useRouter()
+  const [billing, setBilling] = useState<'monthly' | 'annual'>('monthly')
+  const { scrollY } = useScroll()
+  const heroParallax = useTransform(scrollY, [0, 500], [0, -80])
+  const heroOpacity = useTransform(scrollY, [0, 300], [1, 0.3])
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) return
+    const step = user.onboarding_step
+    if (step <= 1) router.replace('/interview')
+    else if (step === 2) router.replace('/goal-setup')
+    else if (step === 3) router.replace('/preview')
+    else if (step === 4) router.replace('/activate')
+    else router.replace('/dashboard')
+  }, [isAuthenticated, user])
+
+  const PLANS = {
+    monthly: [
+      {
+        name: 'The Spark',
+        tagline: 'Start here. Get focused.',
+        price: '$0',
+        period: 'forever',
+        features: [
+          'AI Discovery Interview',
+          'One Goal definition',
+          '3 daily AI tasks',
+          'Basic progress tracking',
+          '7-day streak tracking',
+          'Coach (5 messages/day)',
+        ],
+        cta: 'Start Free',
+        highlight: false,
+      },
+      {
+        name: 'The Forge',
+        tagline: 'For people who want results.',
+        price: '$3.99',
+        period: '/month',
+        features: [
+          'Everything in The Spark',
+          'Unlimited AI Coach',
+          'Full transformation scores',
+          'Weekly evolution reviews',
+          'Reflection insights',
+          'Goal history & archive',
+        ],
+        cta: 'Begin Your Transformation',
+        highlight: true,
+      },
+      {
+        name: 'The Identity',
+        tagline: 'Maximum discipline. Zero excuses.',
+        price: '$8.99',
+        period: '/month',
+        features: [
+          'Everything in The Forge',
+          'Re-interview anytime',
+          'Behavioral fingerprinting',
+          'Priority task generation',
+          'Early feature access',
+          'Priority support',
+        ],
+        cta: 'Go All In',
+        highlight: false,
+      },
+    ],
+    annual: [
+      {
+        name: 'The Spark',
+        tagline: 'Start here. Get focused.',
+        price: '$0',
+        period: 'forever',
+        features: [
+          'AI Discovery Interview',
+          'One Goal definition',
+          '3 daily AI tasks',
+          'Basic progress tracking',
+          '7-day streak tracking',
+          'Coach (5 messages/day)',
+        ],
+        cta: 'Start Free',
+        highlight: false,
+      },
+      {
+        name: 'The Forge',
+        tagline: 'For people who want results.',
+        price: '$2.99',
+        period: '/month',
+        savings: 'Save 25%',
+        features: [
+          'Everything in The Spark',
+          'Unlimited AI Coach',
+          'Full transformation scores',
+          'Weekly evolution reviews',
+          'Reflection insights',
+          'Goal history & archive',
+        ],
+        cta: 'Begin Your Transformation',
+        highlight: true,
+      },
+      {
+        name: 'The Identity',
+        tagline: 'Maximum discipline. Zero excuses.',
+        price: '$6.99',
+        period: '/month',
+        savings: 'Save 22%',
+        features: [
+          'Everything in The Forge',
+          'Re-interview anytime',
+          'Behavioral fingerprinting',
+          'Priority task generation',
+          'Early feature access',
+          'Priority support',
+        ],
+        cta: 'Go All In',
+        highlight: false,
+      },
+    ],
+  }
+
+  const activePlans = PLANS[billing]
+
   return (
-    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-    </svg>
+    <div className="min-h-screen bg-[#0A0908] text-[#F5F1ED] overflow-x-hidden">
+
+      {/* ── Nav ───────────────────────────────────────────── */}
+      <motion.nav
+        initial={{ opacity: 0, y: -16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 border-b border-white/5 bg-[#0A0908]/80 backdrop-blur-md"
+      >
+        <span className="font-display text-xl text-[#F5F1ED]">One Goal</span>
+        <div className="flex items-center gap-4">
+          <Link href="/login" className="text-sm text-[#7A6E65] hover:text-[#F5F1ED] transition-colors">
+            Sign in
+          </Link>
+          <Link
+            href="/signup"
+            className="text-sm px-4 py-2 rounded-xl bg-[#F59E0B] text-[#0A0908] font-medium hover:bg-[#D97706] transition-all hover:scale-[1.02] active:scale-[0.98]"
+          >
+            Begin Your Transformation
+          </Link>
+        </div>
+      </motion.nav>
+
+      {/* ── Hero ──────────────────────────────────────────── */}
+      <section className="relative min-h-screen flex flex-col items-center justify-center px-6 pt-24 pb-16 text-center overflow-hidden">
+        {/* Floating orbs */}
+        <FloatingOrb size={600} top="20%" left="50%" delay={0} duration={8} opacity={0.07} />
+        <FloatingOrb size={300} top="60%" left="15%" delay={2} duration={10} opacity={0.05} />
+        <FloatingOrb size={200} top="30%" left="75%" delay={4} duration={7} opacity={0.06} />
+
+        {/* Grid texture */}
+        <div
+          className="absolute inset-0 pointer-events-none opacity-[0.03]"
+          style={{
+            backgroundImage: 'linear-gradient(rgba(245,158,11,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(245,158,11,0.5) 1px, transparent 1px)',
+            backgroundSize: '60px 60px',
+          }}
+        />
+
+        <motion.div
+          style={{ y: heroParallax, opacity: heroOpacity }}
+          className="relative z-10 max-w-4xl mx-auto"
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#F59E0B]/20 bg-[#F59E0B]/5 text-[#F59E0B] text-xs tracking-widest uppercase mb-8"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] animate-pulse" />
+            Identity Transformation Platform
+          </motion.div>
+
+          <motion.h1
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className="font-display text-5xl md:text-7xl lg:text-8xl leading-[1.05] text-[#F5F1ED] mb-4"
+          >
+            One Goal.{' '}
+            <br className="hidden md:block" />
+            <Typewriter words={['One Identity.', 'One Direction.', 'No Excuses.', 'Your Future Self.']} />
+          </motion.h1>
+
+          <motion.p
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.4 }}
+            className="text-[#7A6E65] text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed"
+          >
+            Most apps track what you do. OneGoal transforms who you are.
+            An AI that interviews you, understands you, and builds a daily
+            system around the person you're becoming.
+          </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.55 }}
+            className="flex flex-col sm:flex-row items-center justify-center gap-4"
+          >
+            <Link
+              href="/signup"
+              className="group w-full sm:w-auto px-8 py-4 rounded-2xl bg-[#F59E0B] text-[#0A0908] font-semibold text-base hover:bg-[#D97706] transition-all hover:scale-[1.03] active:scale-[0.98] flex items-center justify-center gap-2"
+            >
+              Begin Your Transformation
+              <motion.span
+                animate={{ x: [0, 4, 0] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+              >→</motion.span>
+            </Link>
+            <Link
+              href="/login"
+              className="w-full sm:w-auto px-8 py-4 rounded-2xl border border-white/10 text-[#A09690] text-base hover:border-white/25 hover:text-[#F5F1ED] transition-all"
+            >
+              Sign in
+            </Link>
+          </motion.div>
+        </motion.div>
+
+        {/* Stats */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.75 }}
+          className="relative z-10 mt-20 grid grid-cols-3 gap-8 max-w-lg mx-auto"
+        >
+          {[
+            { value: 'AI-Powered', label: 'Identity Coaching' },
+            { value: 'Identity-First', label: 'Not Just Tasks' },
+            { value: 'Zero Fluff', label: 'Pure Focus' },
+          ].map((stat) => (
+            <div key={stat.label} className="text-center">
+              <div className="font-display text-base md:text-lg text-[#F59E0B] mb-1">{stat.value}</div>
+              <div className="text-xs text-[#5C524A] uppercase tracking-wider">{stat.label}</div>
+            </div>
+          ))}
+        </motion.div>
+
+        {/* Scroll indicator */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.2 }}
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
+        >
+          <span className="text-[#3D3630] text-xs tracking-widest uppercase">Scroll</span>
+          <motion.div
+            animate={{ y: [0, 6, 0] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+            className="w-px h-8 bg-gradient-to-b from-[#F59E0B]/30 to-transparent"
+          />
+        </motion.div>
+      </section>
+
+      {/* ── Live Demo ─────────────────────────────────────── */}
+      <section className="px-6 py-24 max-w-5xl mx-auto">
+        <div className="grid md:grid-cols-2 gap-12 items-center">
+          <Reveal>
+            <p className="text-[#F59E0B] text-xs tracking-widest uppercase mb-4">See It In Action</p>
+            <h2 className="font-display text-4xl md:text-5xl text-[#F5F1ED] mb-6">
+              This is not<br />
+              <span className="italic text-[#7A6E65]">an onboarding form.</span>
+            </h2>
+            <p className="text-[#5C524A] leading-relaxed mb-6">
+              The Discovery Interview is a real AI conversation that maps your life
+              direction, vision, strengths, and what holds you back. It builds your
+              identity profile — the foundation everything else is built on.
+            </p>
+            <Link
+              href="/signup"
+              className="inline-flex items-center gap-2 text-[#F59E0B] text-sm hover:gap-3 transition-all"
+            >
+              Start your interview <span>→</span>
+            </Link>
+          </Reveal>
+
+          <Reveal delay={0.15}>
+            <DemoPreview />
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ── How It Works ──────────────────────────────────── */}
+      <section className="px-6 py-24 bg-[#0D0B09]">
+        <div className="max-w-5xl mx-auto">
+          <Reveal className="text-center mb-16">
+            <p className="text-[#F59E0B] text-xs tracking-widest uppercase mb-4">The Process</p>
+            <h2 className="font-display text-4xl md:text-5xl text-[#F5F1ED]">
+              Built around{' '}
+              <span className="italic">who you're becoming</span>
+            </h2>
+          </Reveal>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              {
+                step: '01',
+                title: 'The Discovery Interview',
+                description: 'A deep AI conversation that maps your life direction, vision, strengths, and what holds you back. This isn\'t onboarding — it\'s a mirror.',
+                icon: '◎',
+                delay: 0,
+              },
+              {
+                step: '02',
+                title: 'Your One Goal',
+                description: 'From everything you share, the AI distills a single transformational goal and builds a strategy around who you need to become to achieve it.',
+                icon: '◈',
+                delay: 0.1,
+              },
+              {
+                step: '03',
+                title: 'Daily Identity Actions',
+                description: 'Every day, AI-generated tasks calibrated to your schedule, energy, and the exact identity shifts required. Show up. Become.',
+                icon: '◆',
+                delay: 0.2,
+              },
+            ].map((item) => (
+              <Reveal key={item.step} delay={item.delay}>
+                <motion.div
+                  whileHover={{ y: -4, borderColor: 'rgba(245,158,11,0.3)' }}
+                  transition={{ duration: 0.2 }}
+                  className="relative p-6 rounded-2xl border border-white/5 bg-[#141210] cursor-default h-full"
+                >
+                  <div className="text-[#F59E0B]/15 font-display text-6xl absolute top-4 right-5 select-none">
+                    {item.step}
+                  </div>
+                  <div className="text-[#F59E0B] text-2xl mb-4">{item.icon}</div>
+                  <h3 className="font-display text-xl text-[#F5F1ED] mb-3">{item.title}</h3>
+                  <p className="text-[#5C524A] text-sm leading-relaxed">{item.description}</p>
+                </motion.div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Features ──────────────────────────────────────── */}
+      <section className="px-6 py-24">
+        <div className="max-w-5xl mx-auto">
+          <Reveal className="text-center mb-16">
+            <p className="text-[#F59E0B] text-xs tracking-widest uppercase mb-4">Features</p>
+            <h2 className="font-display text-4xl md:text-5xl text-[#F5F1ED]">
+              Everything you need.{' '}
+              <span className="italic text-[#7A6E65]">Nothing you don't.</span>
+            </h2>
+          </Reveal>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            {[
+              { title: 'AI Discovery Interview', description: 'A real conversation that builds your identity profile. Not a form. A mirror.', icon: '🎯', delay: 0 },
+              { title: 'Identity-Aligned Goal Setting', description: 'Your One Goal is crafted from who you are and who you\'re becoming — not what you think you should want.', icon: '⚡', delay: 0.05 },
+              { title: 'AI Coach', description: 'Your accountability partner who knows your patterns, calls out your excuses, and keeps you moving.', icon: '🧠', delay: 0.1 },
+              { title: 'Daily Precision Tasks', description: 'AI-generated tasks every morning, calibrated to your schedule, energy, and identity gaps.', icon: '◆', delay: 0.15 },
+              { title: 'Transformation Score', description: 'A living score across consistency, depth, momentum, and alignment. See yourself changing in real time.', icon: '📈', delay: 0.2 },
+              { title: 'Weekly Evolution Reviews', description: 'The AI reviews your week, identifies patterns, and recalibrates your path forward.', icon: '🔄', delay: 0.25 },
+            ].map((feature) => (
+              <Reveal key={feature.title} delay={feature.delay}>
+                <motion.div
+                  whileHover={{ x: 4, borderColor: 'rgba(245,158,11,0.2)' }}
+                  transition={{ duration: 0.2 }}
+                  className="flex gap-4 p-5 rounded-2xl border border-white/5 bg-[#141210] cursor-default"
+                >
+                  <span className="text-2xl shrink-0 mt-0.5">{feature.icon}</span>
+                  <div>
+                    <h3 className="text-[#F5F1ED] font-medium mb-1">{feature.title}</h3>
+                    <p className="text-[#5C524A] text-sm leading-relaxed">{feature.description}</p>
+                  </div>
+                </motion.div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Testimonials ──────────────────────────────────── */}
+      <section className="px-6 py-24 bg-[#0D0B09]">
+        <div className="max-w-5xl mx-auto">
+          <Reveal className="text-center mb-16">
+            <p className="text-[#F59E0B] text-xs tracking-widest uppercase mb-4">Real Results</p>
+            <h2 className="font-display text-4xl md:text-5xl text-[#F5F1ED]">
+              Real people.{' '}
+              <span className="italic">Real transformation.</span>
+            </h2>
+            <p className="text-[#5C524A] mt-4">No fluff. Just what happened when they stopped juggling and started becoming.</p>
+          </Reveal>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              { initials: 'MC', name: 'Marcus C.', role: 'Startup Founder', quote: 'I had 12 half-finished projects. The interview made me face what I was actually avoiding. One goal. Three months. I shipped more than the previous year combined.', delay: 0 },
+              { initials: 'SM', name: 'Sarah M.', role: 'Product Designer', quote: 'The AI Coach called me out the third time I postponed my goal. That level of accountability — knowing the system sees your patterns — changes everything.', delay: 0.1 },
+              { initials: 'AP', name: 'Aisha P.', role: 'Grad Student', quote: 'The discovery interview felt uncomfortably accurate. By week two, the daily tasks were so aligned it felt personal. Because they were.', delay: 0.2 },
+            ].map((t) => (
+              <Reveal key={t.name} delay={t.delay}>
+                <motion.div
+                  whileHover={{ y: -4 }}
+                  transition={{ duration: 0.2 }}
+                  className="p-6 rounded-2xl border border-white/5 bg-[#141210] h-full flex flex-col"
+                >
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-9 h-9 rounded-full bg-[#F59E0B]/20 border border-[#F59E0B]/20 flex items-center justify-center shrink-0">
+                      <span className="text-[#F59E0B] text-xs font-semibold">{t.initials}</span>
+                    </div>
+                    <div>
+                      <p className="text-[#C4BBB5] text-sm font-medium">{t.name}</p>
+                      <p className="text-[#3D3630] text-xs">{t.role}</p>
+                    </div>
+                  </div>
+                  <p className="text-[#7A6E65] text-sm leading-relaxed italic flex-1">"{t.quote}"</p>
+                  <div className="flex gap-0.5 mt-4">
+                    {[...Array(5)].map((_, i) => (
+                      <span key={i} className="text-[#F59E0B] text-xs">★</span>
+                    ))}
+                  </div>
+                </motion.div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Pricing ───────────────────────────────────────── */}
+      <section className="px-6 py-24">
+        <div className="max-w-5xl mx-auto">
+          <Reveal className="text-center mb-12">
+            <p className="text-[#F59E0B] text-xs tracking-widest uppercase mb-4">Pricing</p>
+            <h2 className="font-display text-4xl md:text-5xl text-[#F5F1ED] mb-6">
+              Choose your level of{' '}
+              <span className="italic text-[#F59E0B]">commitment</span>
+            </h2>
+
+            {/* Billing toggle */}
+            <div className="inline-flex items-center gap-1 p-1 rounded-xl border border-white/10 bg-[#141210]">
+              <button
+                onClick={() => setBilling('monthly')}
+                className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${
+                  billing === 'monthly'
+                    ? 'bg-[#F59E0B] text-[#0A0908]'
+                    : 'text-[#5C524A] hover:text-[#A09690]'
+                }`}
+              >
+                Monthly
+              </button>
+              <button
+                onClick={() => setBilling('annual')}
+                className={`px-5 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+                  billing === 'annual'
+                    ? 'bg-[#F59E0B] text-[#0A0908]'
+                    : 'text-[#5C524A] hover:text-[#A09690]'
+                }`}
+              >
+                Annual
+                <span className={`text-xs px-1.5 py-0.5 rounded-md ${billing === 'annual' ? 'bg-[#0A0908]/20' : 'bg-[#F59E0B]/10 text-[#F59E0B]'}`}>
+                  Save 25%
+                </span>
+              </button>
+            </div>
+          </Reveal>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            <AnimatePresence mode="wait">
+              {activePlans.map((plan, i) => (
+                <motion.div
+                  key={`${billing}-${plan.name}`}
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.35, delay: i * 0.07 }}
+                  className={`relative p-6 rounded-2xl border flex flex-col ${
+                    plan.highlight
+                      ? 'border-[#F59E0B]/35 bg-[#141210]'
+                      : 'border-white/5 bg-[#141210]'
+                  }`}
+                >
+                  {plan.highlight && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-[#F59E0B] text-[#0A0908] text-xs font-semibold whitespace-nowrap">
+                      Most Popular
+                    </div>
+                  )}
+                  {'savings' in plan && plan.savings && (
+                    <div className="absolute -top-3 right-4 px-3 py-1 rounded-full bg-[#4ADE80]/20 border border-[#4ADE80]/30 text-[#4ADE80] text-xs font-medium">
+                      {plan.savings}
+                    </div>
+                  )}
+
+                  <div className="mb-6">
+                    <h3 className="font-display text-xl text-[#F5F1ED] mb-1">{plan.name}</h3>
+                    <p className="text-[#5C524A] text-sm mb-4">{plan.tagline}</p>
+                    <div className="flex items-baseline gap-1">
+                      <span className="font-display text-4xl text-[#F5F1ED]">{plan.price}</span>
+                      <span className="text-[#5C524A] text-sm">{plan.period}</span>
+                    </div>
+                  </div>
+
+                  <ul className="space-y-3 mb-8 flex-1">
+                    {plan.features.map((f) => (
+                      <li key={f} className="flex items-start gap-2 text-sm">
+                        <span className="text-[#F59E0B] mt-0.5 shrink-0">✓</span>
+                        <span className="text-[#7A6E65]">{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <Link
+                    href="/signup"
+                    className={`w-full py-3 rounded-xl text-sm font-medium text-center transition-all hover:scale-[1.02] active:scale-[0.98] ${
+                      plan.highlight
+                        ? 'bg-[#F59E0B] text-[#0A0908] hover:bg-[#D97706]'
+                        : 'border border-white/10 text-[#A09690] hover:border-white/25 hover:text-[#F5F1ED]'
+                    }`}
+                  >
+                    {plan.cta}
+                  </Link>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+          <p className="text-center text-[#3D3630] text-xs mt-8">
+            All plans include a 14-day money-back guarantee. No questions asked.
+          </p>
+        </div>
+      </section>
+
+      {/* ── FAQ ───────────────────────────────────────────── */}
+      <section className="px-6 py-24 bg-[#0D0B09]">
+        <div className="max-w-3xl mx-auto">
+          <Reveal className="text-center mb-16">
+            <p className="text-[#F59E0B] text-xs tracking-widest uppercase mb-4">FAQ</p>
+            <h2 className="font-display text-4xl text-[#F5F1ED]">Questions? Answers.</h2>
+            <p className="text-[#5C524A] mt-4">No fluff. Just what you actually want to know.</p>
+          </Reveal>
+          <FAQList />
+        </div>
+      </section>
+
+      {/* ── Final CTA ─────────────────────────────────────── */}
+      <section className="px-6 py-32 text-center relative overflow-hidden">
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <motion.div
+            animate={{ scale: [1, 1.1, 1], opacity: [0.04, 0.07, 0.04] }}
+            transition={{ duration: 6, repeat: Infinity }}
+            className="w-[700px] h-[700px] rounded-full"
+            style={{ background: 'radial-gradient(circle, rgba(245,158,11,1) 0%, transparent 70%)' }}
+          />
+        </div>
+        <Reveal className="relative z-10 max-w-2xl mx-auto">
+          <h2 className="font-display text-4xl md:text-6xl text-[#F5F1ED] mb-6">
+            The person you want to be{' '}
+            <span className="italic text-[#F59E0B]">is one goal away.</span>
+          </h2>
+          <p className="text-[#5C524A] mb-10 text-lg">Stop managing tasks. Start becoming.</p>
+          <Link
+            href="/signup"
+            className="inline-flex items-center gap-3 px-10 py-4 rounded-2xl bg-[#F59E0B] text-[#0A0908] font-semibold text-base hover:bg-[#D97706] transition-all hover:scale-[1.03] active:scale-[0.98]"
+          >
+            Begin Your Transformation
+            <motion.span animate={{ x: [0, 5, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>
+              →
+            </motion.span>
+          </Link>
+        </Reveal>
+      </section>
+
+      {/* ── Footer ────────────────────────────────────────── */}
+      <footer className="px-6 py-10 border-t border-white/5">
+        <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          <span className="font-display text-lg text-[#F5F1ED]">One Goal</span>
+          <p className="text-[#3D3630] text-xs text-center">One Goal. One Identity. One Day at a Time.</p>
+          <div className="flex gap-6 text-xs text-[#3D3630]">
+            <Link href="/login" className="hover:text-[#7A6E65] transition-colors">Sign in</Link>
+            <Link href="/signup" className="hover:text-[#7A6E65] transition-colors">Sign up</Link>
+          </div>
+        </div>
+      </footer>
+    </div>
+  )
+}
+
+// ── FAQ Accordion ──────────────────────────────────────────────
+const FAQS = [
+  { q: 'Why only ONE goal? That seems limiting.', a: 'Because scattered focus is why most people never finish anything meaningful. One Goal forces you to decide what actually matters — and that decision, made clearly, is the beginning of transformation.' },
+  { q: 'What is the Discovery Interview?', a: 'It\'s a deep AI conversation — not a form — that maps your vision, strengths, frustrations, and daily life. The AI uses this to build your identity profile and craft a goal that\'s genuinely yours.' },
+  { q: 'How is this different from other productivity apps?', a: 'Most apps track tasks. OneGoal tracks transformation. The goal isn\'t to be more productive — it\'s to become the person who naturally achieves what you want.' },
+  { q: 'Can I change my goal?', a: 'On The Identity plan, you can re-interview anytime and reset your goal. On other plans, your goal can be refined through the AI Coach as your clarity deepens.' },
+  { q: 'Is there a refund policy?', a: 'Yes. All paid plans include a 14-day money-back guarantee. No questions asked.' },
+]
+
+function FAQList() {
+  const [open, setOpen] = useState<number | null>(null)
+  return (
+    <div className="space-y-3">
+      {FAQS.map((faq, i) => (
+        <Reveal key={i} delay={i * 0.05}>
+          <div className="border border-white/5 rounded-2xl bg-[#141210] overflow-hidden">
+            <button
+              onClick={() => setOpen(open === i ? null : i)}
+              className="w-full flex items-center justify-between px-6 py-4 text-left text-[#C4BBB5] hover:text-[#F5F1ED] transition-colors text-sm font-medium"
+            >
+              {faq.q}
+              <motion.span
+                animate={{ rotate: open === i ? 45 : 0 }}
+                transition={{ duration: 0.2 }}
+                className="text-[#F59E0B] shrink-0 ml-4 text-lg leading-none"
+              >
+                +
+              </motion.span>
+            </button>
+            <AnimatePresence>
+              {open === i && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                  className="overflow-hidden"
+                >
+                  <div className="px-6 pb-5 text-[#5C524A] text-sm leading-relaxed border-t border-white/5 pt-4">
+                    {faq.a}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </Reveal>
+      ))}
+    </div>
   )
 }
