@@ -176,7 +176,7 @@ class TaskGeneratorEngine(BaseAIEngine):
             text("""
                 SELECT title FROM daily_tasks
                 WHERE user_id = :user_id
-                  AND scheduled_date >= CURRENT_DATE - :days
+                  AND scheduled_date >= CURRENT_DATE - (:days * INTERVAL '1 day')
                 ORDER BY scheduled_date DESC
                 LIMIT 7
             """),
