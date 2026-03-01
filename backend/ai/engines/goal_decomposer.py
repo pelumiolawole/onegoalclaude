@@ -178,7 +178,7 @@ class GoalDecomposerEngine(BaseAIEngine):
                     estimated_timeline, difficulty_level, started_at
                 ) VALUES (
                     :user_id, 'active', :raw_input, :refined, :why,
-                    :success_def, :required_identity, :key_shifts::text[],
+                    :success_def, :required_identity, CAST(:key_shifts AS text[]),
                     :timeline, :difficulty, NOW()
                 )
                 RETURNING id
