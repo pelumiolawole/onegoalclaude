@@ -15,12 +15,24 @@ const NAV = [
 ]
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated, refreshUser } = useAuthStore()
   const router = useRouter()
   const pathname = usePathname()
 
+  // On mount: verify token is still valid — prevents false logout on tab switch
   useEffect(() => {
-    if (!isAuthenticated) { router.replace('/login'); return }
+    const token = localStorage.getItem('access_token')
+    if (!token) {
+      router.replace('/login')
+      return
+    }
+    // Silently re-validate; clearAuth() inside will redirect if truly expired
+    refreshUser()
+  }, [])
+
+  // Only redirect for onboarding — don't react to isAuthenticated flips during rehydration
+  useEffect(() => {
+    if (!isAuthenticated) return
     if (user && user.onboarding_step < 5) {
       const step = user.onboarding_step
       if (step === 0 || step === 1) router.replace('/interview')
@@ -28,7 +40,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       else if (step === 3) router.replace('/preview')
       else if (step === 4) router.replace('/activate')
     }
-  }, [isAuthenticated, user])
+  }, [user?.onboarding_step])
 
   return (
     <div className="min-h-screen bg-[#0A0908] flex">
