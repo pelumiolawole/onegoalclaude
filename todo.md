@@ -53,15 +53,15 @@
 - Email: olawolepelumisunday@gmail.com
 - onboarding_step: 2 (interview_complete → should route to /goal-setup)
 
-## 🐛 Active Bug — Fix in Next Session
+## ✅ Bug Fixed — `invalid input syntax for type date: "999"`
 
-**`invalid input syntax for type date: "999"`**
-- Triggered by: `POST /api/onboarding/goal-setup` → "Build my strategy"
-- Error location: `get_user_ai_context` Postgres function, called from `context_builder.py` line 65
-- Cause: A date column is storing "999" (likely AI returning a number instead of a date for estimated_timeline or target_date)
-- Suspect tables: goals.target_date, identity_profiles.last_active_date
-- Fix: Clean bad data in Supabase OR patch the function to handle non-date values safely
-- Diagnose with:
-  SELECT target_date FROM goals WHERE user_id = 'fa5a16ab-e6ed-4217-bffd-73447c22459c';
-  SELECT last_active_date FROM identity_profiles WHERE user_id = 'fa5a16ab-e6ed-4217-bffd-73447c22459c';
-  SELECT * FROM identity_profiles WHERE user_id = 'fa5a16ab-e6ed-4217-bffd-73447c22459c';
+- Root cause: `get_user_retention_context` declared `v_last_seen` as `DATE`
+  but assigned the INTEGER result of `CURRENT_DATE - MAX(event_date)`.
+  When no engagement events exist, `COALESCE(..., 999)` assigned integer 999
+  to the DATE variable → Postgres error.
+- Fix applied: changed `v_last_seen DATE` → `v_last_seen INTEGER` and
+  use it directly in the JSON output (no second subtraction needed).
+- Files changed:
+  - `backend/db/migrations/003_behavioral_analytics.sql` (source of truth updated)
+  - `backend/db/migrations/005_fix_retention_context.sql` (NEW — run on live DB)
+- **Action required**: Run `005_fix_retention_context.sql` in Supabase SQL editor.

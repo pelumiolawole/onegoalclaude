@@ -155,7 +155,7 @@ RETURNS JSONB AS $$
 DECLARE
   v_profile     RECORD;
   v_recent_days INTEGER;
-  v_last_seen   DATE;
+  v_last_seen   INTEGER;
   v_result      JSONB;
 BEGIN
   -- Get identity profile state
@@ -187,7 +187,7 @@ BEGIN
     'momentum_state',         v_profile.momentum_state,
     'transformation_score',   v_profile.transformation_score,
     'days_since_last_task',   v_recent_days,
-    'days_since_last_seen',   CURRENT_DATE - v_last_seen,
+    'days_since_last_seen',   v_last_seen,
     'needs_intervention',     (v_recent_days >= 2 OR v_profile.momentum_state = 'critical'),
     'approaching_milestone',  (
       SELECT COUNT(*) > 0
