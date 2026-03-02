@@ -89,7 +89,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <p className="text-[#C4BBB5] text-xs truncate group-hover:text-[#E8E2DC]">
                   {user.display_name || user.email}
                 </p>
-                <p className="text-[#3D3630] text-xs font-mono">Settings</p>
+                <p className="text-[#5C524A] text-xs group-hover:text-[#F59E0B] transition-colors">Settings →</p>
               </div>
             </Link>
           </div>

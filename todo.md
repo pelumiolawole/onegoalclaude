@@ -10,39 +10,47 @@
 - Interview engine working (SQL CAST fix applied)
 - Interview completes and saves to DB
 - Routing fixed: login now routes by onboarding_step
-
-## 🔧 In Progress
-- Login redirect to /onboarding bug
-  - app-layout.tsx and login/page.tsx cleaned up and provided
-  - Awaiting commit + deploy
+- Goal setup working (POST /api/onboarding/goal-setup)
+- Activate working — 3 tasks generated via OpenAI
+- Dashboard loading (progress, timeline, traits, goals)
+- Coach sessions endpoint working
+- Settings page created (/settings)
+- Tab-switch logout fixed (token check on mount only)
+- last_task_date column added to identity_profiles
+- Date arithmetic fix in task_generator (INTERVAL cast)
+- Logo integrated across all 11 placements
+- Landing page stats updated
+- AI writing cleanup completed across all frontend pages
 
 ## ⏭️ Next Steps (in order)
 
-### 1. Verify login routing works after deploy
-- Visit onegoalpro.vercel.app
-- Sign in → should land on /goal-setup (your step is 2)
+### 1. Full dashboard smoke test
+- Check Today tab — tasks showing?
+- Check Progress tab — scores, timeline, traits loading?
+- Check Coach tab — session starting?
+- Check Goal tab — active goal showing?
+- Check Settings — name/email showing, logout working?
 
-### 2. Test /goal-setup page
-- This is where the user defines their One Goal from interview data
-- Backend endpoint: POST /api/onboarding/goal-setup
-- Check if page loads and goal submission works
+### 2. Task completion flow
+- Can you mark a task done?
+- Does the streak update?
+- Does the score update?
 
-### 3. Test /preview page
-- Shows the AI-generated strategy
-- Backend endpoint: GET /api/onboarding/goal-setup/preview
+### 3. Coach conversation
+- Start a session
+- Does it respond with context about your goal?
+- Does it remember between messages?
 
-### 4. Test /activate page
-- Confirms goal and generates first tasks
-- Backend endpoint: POST /api/onboarding/activate
+### 4. Daily task generation (scheduled)
+- Tasks are generated for tomorrow every night via APScheduler
+- Monitor Railway logs to confirm it runs
 
-### 5. Verify dashboard loads after activation
-- onboarding_step should be 5
-- Tasks, scores, streak should render
+### 5. Book launch / IIC Networks work
+- Pending separate session
 
 ## Known Issues
 - "od" display bug on dashboard streak/days (cosmetic, low priority)
-- Interview history still visible but AI returns "I didn't catch that"
-  after completion (expected — interview is done, state is is_complete=true)
+- Railway logs hitting 500/sec rate limit during heavy load (not a bug, just verbose logging)
 
 ## Deployments
 - Frontend: onegoalpro.vercel.app (Vercel)
@@ -51,17 +59,4 @@
 
 ## Your Account
 - Email: olawolepelumisunday@gmail.com
-- onboarding_step: 2 (interview_complete → should route to /goal-setup)
-
-## ✅ Bug Fixed — `invalid input syntax for type date: "999"`
-
-- Root cause: `get_user_retention_context` declared `v_last_seen` as `DATE`
-  but assigned the INTEGER result of `CURRENT_DATE - MAX(event_date)`.
-  When no engagement events exist, `COALESCE(..., 999)` assigned integer 999
-  to the DATE variable → Postgres error.
-- Fix applied: changed `v_last_seen DATE` → `v_last_seen INTEGER` and
-  use it directly in the JSON output (no second subtraction needed).
-- Files changed:
-  - `backend/db/migrations/003_behavioral_analytics.sql` (source of truth updated)
-  - `backend/db/migrations/005_fix_retention_context.sql` (NEW — run on live DB)
-- **Action required**: Run `005_fix_retention_context.sql` in Supabase SQL editor.
+- onboarding_step: 5 (active — dashboard access)
