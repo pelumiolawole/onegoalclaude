@@ -235,7 +235,7 @@ class ApiClient {
         needs_clarification: boolean
         clarifying_questions: string[]
         strategy: any | null
-      }>('/onboarding/goal', {
+      }>('/onboarding/goal-setup', {
         method: 'POST',
         body: JSON.stringify({ raw_goal }),
       }),

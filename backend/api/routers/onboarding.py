@@ -10,10 +10,10 @@ Onboarding stages and their endpoints:
         POST /onboarding/interview/restart     — start over
 
     Stage 2: Goal Definition
-        POST /onboarding/goal                  — submit raw goal for decomposition
-        POST /onboarding/goal/clarify          — answer AI clarifying questions
-        GET  /onboarding/goal/preview          — preview decomposed strategy before confirming
-        POST /onboarding/goal/confirm          — confirm and activate goal
+        POST /onboarding/goal-setup                  — submit raw goal for decomposition
+        POST /onboarding/goal-setup/clarify          — answer AI clarifying questions
+        GET  /onboarding/goal-setup/preview          — preview decomposed strategy before confirming
+        POST /onboarding/goal-setup/confirm          — confirm and activate goal
 
     Stage 3: Strategy Review
         GET  /onboarding/strategy              — get full generated strategy
@@ -284,7 +284,7 @@ async def restart_interview(
 # ─── Stage 2: Goal Definition ─────────────────────────────────────────────────
 
 @router.post(
-    "/goal-setup",
+    "/goal",
     response_model=GoalDecompositionResponse,
     summary="Submit goal for AI decomposition",
 )
@@ -326,7 +326,7 @@ async def submit_goal(
 
 
 @router.post(
-    "/goal-setup/clarify",
+    "/goal/clarify",
     response_model=GoalDecompositionResponse,
     summary="Answer AI clarifying questions about your goal",
 )
@@ -349,7 +349,7 @@ async def clarify_goal(
 
 
 @router.get(
-    "/goal-setup/preview",
+    "/goal/preview",
     summary="Preview the decomposed goal strategy",
 )
 async def preview_goal_strategy(
@@ -453,7 +453,7 @@ async def preview_goal_strategy(
 
 
 @router.post(
-    "/goal-setup/confirm",
+    "/goal/confirm",
     summary="Confirm goal strategy and advance to activation",
 )
 async def confirm_goal(
