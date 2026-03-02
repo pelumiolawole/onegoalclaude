@@ -82,7 +82,7 @@ async def get_today_task(
             LEFT JOIN reflections r ON r.task_id = dt.id
             WHERE dt.user_id = :user_id
               AND dt.scheduled_date = :today
-              AND dt.task_type = 'becoming'
+              AND dt.status != 'skipped'
             LIMIT 1
         """),
         {"user_id": uid, "today": today},
@@ -113,7 +113,7 @@ async def get_today_task(
                 FROM daily_tasks dt
                 WHERE dt.user_id = :user_id
                   AND dt.scheduled_date = :today
-                  AND dt.task_type = 'becoming'
+                  AND dt.status != 'skipped'
                 LIMIT 1
             """),
             {"user_id": uid, "today": today},
@@ -151,7 +151,7 @@ async def get_task_by_date(
             LEFT JOIN reflections r ON r.task_id = dt.id
             WHERE dt.user_id = :user_id
               AND dt.scheduled_date = :date
-              AND dt.task_type = 'becoming'
+              AND dt.status != 'skipped'
             LIMIT 1
         """),
         {"user_id": str(current_user.id), "date": parsed_date},
@@ -262,30 +262,6 @@ async def complete_task(
         {"user_id": uid, "date": row.scheduled_date},
     )
 
-    # Update streak immediately (don't wait for end-of-day scheduler)
-    # Increment streak if not already done today, update days_active
-    await db.execute(
-        text("""
-            UPDATE identity_profiles
-            SET
-                current_streak = CASE
-                    WHEN last_active_date = CURRENT_DATE THEN current_streak  -- already counted today
-                    ELSE current_streak + 1
-                END,
-                longest_streak = CASE
-                    WHEN last_active_date = CURRENT_DATE THEN longest_streak
-                    ELSE GREATEST(longest_streak, current_streak + 1)
-                END,
-                days_active = CASE
-                    WHEN last_active_date = CURRENT_DATE THEN days_active
-                    ELSE days_active + 1
-                END,
-                last_active_date = CURRENT_DATE
-            WHERE user_id = :user_id
-        """),
-        {"user_id": uid},
-    )
-
     # Log engagement
     await _log_engagement(uid, "task_complete", db)
     await invalidate_user_context(uid)
@@ -377,7 +353,7 @@ async def get_task_history(
             LEFT JOIN reflections r ON r.task_id = dt.id
             WHERE dt.user_id = :user_id
               AND dt.scheduled_date >= :since
-              AND dt.task_type = 'becoming'
+              AND dt.status != 'skipped'
             ORDER BY dt.scheduled_date DESC
         """),
         {"user_id": uid, "since": since},

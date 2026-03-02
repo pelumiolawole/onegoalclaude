@@ -64,7 +64,7 @@ async def get_dashboard(
             LEFT JOIN reflections r ON r.task_id = dt.id
             WHERE dt.user_id = :user_id
               AND dt.scheduled_date = :today
-              AND dt.task_type = 'becoming'
+              AND dt.status != 'skipped'
             LIMIT 1
         """),
         {"user_id": uid, "today": today},
