@@ -284,7 +284,7 @@ async def restart_interview(
 # ─── Stage 2: Goal Definition ─────────────────────────────────────────────────
 
 @router.post(
-    "/goal",
+    "/goal-setup",
     response_model=GoalDecompositionResponse,
     summary="Submit goal for AI decomposition",
 )
