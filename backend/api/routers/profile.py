@@ -132,10 +132,12 @@ async def upload_avatar(
     ext = file.content_type.split("/")[1]
     if ext == "jpeg":
         ext = "jpg"
-    file_path = f"avatars/{current_user.id}/{uuid.uuid4()}.{ext}"
+    object_path = f"{current_user.id}/{uuid.uuid4()}.{ext}"
+    bucket_name = "avatars"
 
     # Upload to Supabase Storage via REST API
-    storage_url = f"{settings.supabase_url}/storage/v1/object/{file_path}"
+    # URL format: /storage/v1/object/{bucket}/{object_path}
+    storage_url = f"{settings.supabase_url}/storage/v1/object/{bucket_name}/{object_path}"
 
     async with httpx.AsyncClient() as client:
         response = await client.post(
@@ -157,7 +159,7 @@ async def upload_avatar(
 
     # Build public URL
     public_url = (
-        f"{settings.supabase_url}/storage/v1/object/public/{file_path}"
+        f"{settings.supabase_url}/storage/v1/object/public/{bucket_name}/{object_path}"
     )
 
     # Save to users table
@@ -252,7 +254,7 @@ async def generate_share_message(
                 COALESCE(ip.days_active, 0),
                 COALESCE(ip.current_streak, 0),
                 COALESCE(ip.transformation_score, 0),
-                g.title
+                g.refined_statement
             FROM users u
             LEFT JOIN identity_profiles ip ON ip.user_id = u.id
             LEFT JOIN goals g ON g.user_id = u.id AND g.status = 'active'
