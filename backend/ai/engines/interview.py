@@ -44,6 +44,7 @@ INTERVIEW_PHASES = [
     "frustrations",
     "time",
     "lifestyle",
+    "timezone",  # ← NEW: Capture timezone for task delivery
     "summary",
 ]
 
@@ -204,6 +205,7 @@ Return ONLY a JSON object with any of these fields that were discussed:
   "self_reported_weaknesses": ["..."],
   "time_availability": {{"morning": 30, "evening": 60, "weekend": 120}},
   "lifestyle_context": {{"workStyle": "remote|office|hybrid", "familyStatus": "..."}},
+  "timezone": "IANA timezone string (e.g., 'Africa/Lagos', 'Europe/London')",
   "resistance_triggers": ["..."],
   "motivation_style": "aspiration_driven|fear_driven|values_driven|achievement_driven",
   "peak_performance_time": "early_morning|late_morning|afternoon|evening"
@@ -251,6 +253,7 @@ Return only NEW or UPDATED fields. Return empty object {{}} if nothing new was s
             "frustrations": bool(extracted.get("self_reported_weaknesses") or extracted.get("resistance_triggers")),
             "time": bool(extracted.get("time_availability")),
             "lifestyle": bool(extracted.get("motivation_style") or extracted.get("peak_performance_time")),
+            "timezone": bool(extracted.get("timezone")),  # ← NEW
             "summary": True,
         }
 
@@ -373,5 +376,12 @@ Return only NEW or UPDATED fields. Return empty object {{}} if nothing new was s
             text("UPDATE users SET onboarding_status = 'interview_complete' WHERE id = :user_id"),
             {"user_id": user_id},
         )
+
+        # Save timezone to user record for task scheduling
+        if extracted.get("timezone"):
+            await db.execute(
+                text("UPDATE users SET timezone = :timezone WHERE id = :user_id"),
+                {"user_id": user_id, "timezone": extracted["timezone"]},
+            )
 
         logger.info("interview_finalized", user_id=user_id)

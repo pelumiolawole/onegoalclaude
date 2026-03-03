@@ -32,6 +32,11 @@ export default function InterviewPage() {
           setMessages(state.messages)
           setStarted(true)
           setPhase(state.current_phase)
+          
+          // If resuming in timezone phase, auto-detect and offer
+          if (state.current_phase === 'timezone') {
+            offerTimezoneDetection()
+          }
         }
       } catch {}
     }
@@ -42,6 +47,88 @@ export default function InterviewPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
+
+  // NEW: Auto-detect timezone and offer to user
+  function offerTimezoneDetection() {
+    const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+    
+    // Format for display (e.g., "Africa/Lagos" → "Lagos (West Africa)")
+    const displayName = formatTimezone(detectedTimezone)
+    
+    // Add a system message offering the detected timezone
+    const offerMessage: Message = {
+      role: 'assistant',
+      content: `We detected you're in ${displayName}. Is this correct?`
+    }
+    
+    setMessages(prev => [...prev, offerMessage])
+    
+    // Store the detected value temporarily
+    setInput(detectedTimezone)
+  }
+
+  // NEW: Format timezone for display
+  function formatTimezone(timezone: string): string {
+    try {
+      const now = new Date()
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        timeZoneName: 'short'
+      })
+      const parts = formatter.formatToParts(now)
+      const offset = parts.find(p => p.type === 'timeZoneName')?.value || ''
+      
+      // Extract city/region from timezone string
+      const city = timezone.split('/').pop()?.replace(/_/g, ' ') || timezone
+      
+      return `${city} (${offset})`
+    } catch {
+      return timezone
+    }
+  }
+
+  // NEW: Handle timezone confirmation
+  async function confirmTimezone(confirmed: boolean) {
+    if (confirmed) {
+      // User confirmed detected timezone
+      const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+      await sendTimezoneResponse(detectedTimezone)
+    } else {
+      // User wants to manually enter
+      setInput('')
+      const manualMessage: Message = {
+        role: 'assistant',
+        content: 'No problem. What timezone are you in? (e.g., "Lagos", "London", "New York")'
+      }
+      setMessages(prev => [...prev, manualMessage])
+    }
+  }
+
+  // NEW: Send timezone response to backend
+  async function sendTimezoneResponse(timezone: string) {
+    setLoading(true)
+    
+    const newMessages: Message[] = [...messages, { role: 'user', content: timezone }]
+    setMessages(newMessages)
+
+    try {
+      const res = await api.onboarding.sendInterviewMessage(timezone)
+      setMessages([...newMessages, { role: 'assistant', content: res.message }])
+      setPhase(res.phase)
+
+      if (res.is_complete) {
+        await refreshUser()
+        setTimeout(() => router.push('/goal-setup'), 1200)
+      }
+    } catch (err) {
+      setMessages([
+        ...newMessages,
+        { role: 'assistant', content: "Something went wrong. Try sending that again." },
+      ])
+    } finally {
+      setLoading(false)
+    }
+  }
 
   async function startInterview() {
     setStarted(true)
@@ -59,8 +146,22 @@ export default function InterviewPage() {
     }
   }
 
+  // MODIFIED: Handle send with timezone phase logic
   async function sendMessage() {
     if (!input.trim() || loading) return
+    
+    // If in timezone phase and we haven't confirmed yet, handle differently
+    if (phase === 'timezone' && messages[messages.length - 1]?.content?.includes('detected')) {
+      // This is a response to the timezone confirmation
+      const response = input.trim().toLowerCase()
+      if (response === 'yes' || response === 'y' || response === 'correct') {
+        await confirmTimezone(true)
+      } else {
+        await confirmTimezone(false)
+      }
+      return
+    }
+
     const text = input.trim()
     setInput('')
     setLoading(true)
@@ -72,6 +173,11 @@ export default function InterviewPage() {
       const res = await api.onboarding.sendInterviewMessage(text)
       setMessages([...newMessages, { role: 'assistant', content: res.message }])
       setPhase(res.phase)
+
+      // NEW: If we just entered timezone phase, offer auto-detection
+      if (res.phase === 'timezone' && phase !== 'timezone') {
+        offerTimezoneDetection()
+      }
 
       if (res.is_complete) {
         await refreshUser()
@@ -107,7 +213,7 @@ export default function InterviewPage() {
             <span className="text-2xl">✦</span>
           </div>
 
-          <h1 className="font-display text-4xl text-[#F5F1ED] mb-4">
+          <h1 className="font-display text-4xl text-[#F59E1ED] mb-4">
             The Discovery Interview
           </h1>
           <p className="text-[#A09690] text-lg leading-relaxed mb-4">
@@ -188,7 +294,9 @@ export default function InterviewPage() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Type your response…"
+            placeholder={phase === 'timezone' && messages[messages.length - 1]?.content?.includes('detected') 
+              ? "Type 'yes' to confirm or 'no' to enter manually..." 
+              : "Type your response…"}
             minRows={1}
             maxRows={5}
             disabled={loading}
