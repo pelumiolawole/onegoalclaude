@@ -16,6 +16,7 @@ Usage in route handlers:
         ...
 """
 
+from datetime import datetime
 from uuid import UUID
 
 import structlog
@@ -144,43 +145,79 @@ async def get_optional_user(
 
 def require_ai_quota(engine: str):
     """
-    Factory function that returns a dependency checking AI usage quota.
-
-    Usage:
-        @router.post("/coach/message")
-        async def send_message(
-            _: None = Depends(require_ai_quota("coach")),
-            current_user: User = Depends(get_current_active_user),
-        ):
+    Factory function that returns a dependency checking AI usage quota
+    based on subscription tier.
+    
+    Free/Spark tier: 10 coach messages/day
+    Forge/Identity tier: Unlimited
+    
+    Returns soft warning when approaching limit.
     """
     async def _check_quota(
         current_user: User = Depends(get_current_active_user),
-    ) -> None:
-        from core.cache import check_and_increment_ai_rate
-
-        limit = {
-            "coach": settings.ai_coach_daily_message_limit,
-            "interview": settings.ai_interview_message_limit,
-        }.get(engine, 10)
-
+    ) -> dict:
+        from core.cache import check_and_increment_ai_rate, get_redis
+        
+        # Determine limit based on subscription tier
+        plan = (current_user.subscription_plan or "spark").lower()
+        status = (current_user.subscription_status or "inactive").lower()
+        
+        # Check if user has active paid subscription
+        is_paid_active = (
+            plan in ["forge", "identity"] and 
+            status == "active"
+        )
+        
+        if is_paid_active:
+            # Paid users: unlimited, just track usage for analytics
+            redis = await get_redis()
+            count_key = f"ai_usage:{engine}:{current_user.id}:{datetime.now().strftime('%Y-%m-%d')}"
+            count = await redis.incr(count_key)
+            if count == 1:
+                await redis.expire(count_key, 86400)  # 24 hours
+            
+            return {
+                "quota_status": "unlimited",
+                "count": count,
+                "limit": float('inf'),
+                "warning": False,
+            }
+        
+        # Free/Spark tier: enforce 10 message limit
+        FREE_DAILY_LIMIT = 10
+        
         allowed, count = await check_and_increment_ai_rate(
             user_id=str(current_user.id),
             engine=engine,
-            limit=limit,
+            limit=FREE_DAILY_LIMIT,
         )
-
+        
+        # Calculate warning threshold (80% used)
+        warning_threshold = int(FREE_DAILY_LIMIT * 0.8)
+        show_warning = count >= warning_threshold and count < FREE_DAILY_LIMIT
+        
         if not allowed:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail={
-                    "code": "ai_quota_exceeded",
-                    "message": f"You've reached your daily limit for {engine}. "
-                               f"Limit resets at midnight.",
+                    "code": "quota_exceeded",
+                    "message": "You've reached your daily limit of 10 coach messages.",
                     "count": count,
-                    "limit": limit,
+                    "limit": FREE_DAILY_LIMIT,
+                    "upgrade_prompt": True,
+                    "upgrade_message": "Upgrade to Forge for unlimited AI coaching and deeper identity transformation.",
+                    "upgrade_url": "/settings/subscription",
                 },
             )
-
+        
+        return {
+            "quota_status": "active",
+            "count": count,
+            "limit": FREE_DAILY_LIMIT,
+            "warning": show_warning,
+            "remaining": FREE_DAILY_LIMIT - count,
+        }
+    
     return _check_quota
 
 
@@ -224,7 +261,8 @@ async def get_user_ai_context(
 
     return context
 
-# Add to existing auth.py
+
+# ─── Admin Check ──────────────────────────────────────────────────────────────
 
 async def require_admin(
     current_user: User = Depends(get_current_user),

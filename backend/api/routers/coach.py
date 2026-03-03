@@ -145,24 +145,16 @@ async def send_message(
     payload: MessageRequest,
     current_user: User = Depends(get_onboarded_user),
     db: AsyncSession = Depends(get_db),
-    _quota: None = Depends(require_ai_quota("coach")),
+    quota_info: dict = Depends(require_ai_quota("coach")),
 ) -> StreamingResponse:
     """
     Send a message to the AI coach and receive a streaming response.
-
-    Returns Server-Sent Events (SSE) stream.
-    Each event has the format: data: <text_chunk>
-
-    The stream ends with: data: [DONE]
-
-    Frontend usage with EventSource or fetch:
-        const response = await fetch('/api/coach/sessions/{id}/message', {
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer ...', 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content: 'message here' })
-        });
-        const reader = response.body.getReader();
-        // read chunks...
+    
+    Quota headers included in response:
+        X-Quota-Status: unlimited|active|warning
+        X-Quota-Count: current usage count
+        X-Quota-Limit: daily limit (or 'unlimited')
+        X-Quota-Remaining: messages remaining (if applicable)
     """
     # Verify session belongs to this user
     result = await db.execute(
@@ -178,8 +170,30 @@ async def send_message(
             detail="Session not found or not active.",
         )
 
+    # Build quota headers for SSE
+    quota_headers = {
+        "X-Quota-Status": quota_info.get("quota_status", "unknown"),
+        "X-Quota-Count": str(quota_info.get("count", 0)),
+        "X-Quota-Limit": str(quota_info.get("limit", "unlimited")) if quota_info.get("limit") != float('inf') else "unlimited",
+    }
+    
+    if quota_info.get("warning"):
+        quota_headers["X-Quota-Warning"] = "true"
+        quota_headers["X-Quota-Remaining"] = str(quota_info.get("remaining", 0))
+
     async def event_stream() -> AsyncGenerator[str, None]:
         try:
+            # Send quota info as first SSE event (hidden from UI)
+            if quota_info.get("warning"):
+                warning_data = {
+                    "type": "quota_warning",
+                    "count": quota_info.get("count"),
+                    "limit": quota_info.get("limit"),
+                    "remaining": quota_info.get("remaining"),
+                    "upgrade_message": "You're almost at your daily limit. Upgrade to Forge for unlimited coaching.",
+                }
+                yield f"data: {json.dumps(warning_data)}\n\n"
+            
             async for chunk in coach_engine.stream_response(
                 user_id=current_user.id,
                 session_id=session_id,
@@ -209,6 +223,7 @@ async def send_message(
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",  # disable nginx buffering for SSE
+            **quota_headers,
         },
     )
 
