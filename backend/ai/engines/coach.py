@@ -188,6 +188,8 @@ class CoachEngine(BaseAIEngine):
     async def create_session(self, user_id: UUID | str, db: AsyncSession) -> str:
         """Create a new coach session and return its ID."""
         uid = str(user_id)
+        
+        # Create session
         result = await db.execute(
             text("""
                 INSERT INTO ai_coach_sessions (user_id, coaching_mode)
@@ -197,6 +199,11 @@ class CoachEngine(BaseAIEngine):
             {"user_id": uid},
         )
         session_id = str(result.scalar())
+        
+        # Seed with welcome message so AI doesn't repeat it
+        welcome_message = "I'm here. What's on your mind regarding your goal?"
+        await self._save_message(uid, session_id, "assistant", welcome_message, db)
+        
         logger.info("coach_session_created", user_id=uid, session_id=session_id)
         return session_id
 
@@ -287,24 +294,36 @@ class CoachEngine(BaseAIEngine):
 
         return "\n".join(lines)
 
-    async def _load_recent_messages(
+            async def _load_recent_messages(
         self, session_id: str, db: AsyncSession, limit: int = 10
     ) -> list[dict]:
         """Load recent messages in a session for conversation context."""
+        # Get total count first
+        count_result = await db.execute(
+            text("""
+                SELECT COUNT(*) FROM ai_coach_messages
+                WHERE session_id = :session_id
+            """),
+            {"session_id": session_id},
+        )
+        total_count = count_result.scalar() or 0
+        
+        # Calculate offset to get the most recent 'limit' messages
+        offset = max(0, total_count - limit)
+        
         result = await db.execute(
             text("""
                 SELECT role, content
                 FROM ai_coach_messages
                 WHERE session_id = :session_id
-                ORDER BY created_at DESC
-                LIMIT :limit
+                ORDER BY created_at ASC
+                LIMIT :limit OFFSET :offset
             """),
-            {"session_id": session_id, "limit": limit},
+            {"session_id": session_id, "limit": limit, "offset": offset},
         )
         rows = result.fetchall()
-        # Reverse to get chronological order
-        return [{"role": row.role, "content": row.content} for row in reversed(rows)]
-
+        return [{"role": row.role, "content": row.content} for row in rows]
+    
     async def _save_message(
         self,
         user_id: str,
