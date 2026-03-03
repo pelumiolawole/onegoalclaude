@@ -19,6 +19,8 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
+    # ... other settings ...
+    STRIPE_WEBHOOK_SECRET: str = "",
     )
 
     # ─── App ────────────────────────────────────────────────────────────
