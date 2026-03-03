@@ -1,192 +1,152 @@
 """
 ai/utils/safety_filter.py
 
-Safety filter for all user-generated content.
-
-Two layers of protection:
-    1. Pattern matching  — fast, runs on every input before AI call
-    2. AI classification — deeper check for ambiguous content
-
-Safety levels:
-    SAFE        — process normally
-    CAUTION     — AI coach shifts to support mode, no advice given
-    DISTRESS    — coaching paused, supportive response + resources
-    CRISIS      — coaching stops completely, crisis resources shown immediately
-
-This module is called:
-    - Before every coach message is processed
-    - After every reflection is submitted
-    - Before any AI response is shown to the user
-
-Design principle: When in doubt, escalate. A false positive
-(treating frustration as distress) is far better than a false negative.
+Safety classification and response system for user messages.
+Detects crisis, distress, and out-of-scope content.
 """
 
+import enum
 import re
-from enum import Enum
+from dataclasses import dataclass
+from typing import Optional
 
 import structlog
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger()
 
 
-class SafetyLevel(str, Enum):
-    SAFE = "safe"
-    CAUTION = "caution"       # frustration, mild negativity
-    DISTRESS = "distress"     # hopelessness, self-criticism, despair
-    CRISIS = "crisis"         # self-harm, suicidal ideation
+class SafetyLevel(enum.Enum):
+    NORMAL = "normal"
+    DISTRESS = "distress"  # User struggling but not immediate danger
+    CRISIS = "crisis"      # Potential self-harm or emergency
 
 
-# ─── Pattern dictionaries ─────────────────────────────────────────────────────
+@dataclass
+class SafetyResult:
+    level: SafetyLevel
+    flag_type: str
+    severity: int  # 1-10
+    reason: str
 
-CRISIS_PATTERNS = [
-    r"\bsuicid",
-    r"\bkill\s+(my)?self\b",
-    r"\bend\s+(my|it\s+all|everything)\b",
-    r"\bwant\s+to\s+die\b",
-    r"\bno\s+reason\s+to\s+(live|go\s+on)\b",
-    r"\bself.harm\b",
-    r"\bhurt\s+myself\b",
-    r"\bcut\s+myself\b",
-    r"\bsaying\s+goodbye\b",
-    r"\bnot\s+be\s+here\b",
-]
-
-DISTRESS_PATTERNS = [
-    r"\bhopeless\b",
-    r"\bgive\s+up\b",
-    r"\bcan'?t\s+(do\s+this|go\s+on)\b",
-    r"\bworthless\b",
-    r"\bfailure\b.*\b(am|feel)\b",
-    r"\bnothing\s+(matters|works)\b",
-    r"\balone\b.*\b(always|forever)\b",
-    r"\bdesperate\b",
-    r"\bbroken\b",
-    r"\bno\s+point\b",
-]
-
-CAUTION_PATTERNS = [
-    r"\bstressed\b",
-    r"\boverwhelmed\b",
-    r"\bburnt?\s+out\b",
-    r"\bfrustrat",
-    r"\banxious\b",
-    r"\bstrugglin",
-    r"\bgiving\s+up\b",
-    r"\bcan'?t\s+keep\b",
-]
-
-OUT_OF_SCOPE_PATTERNS = [
-    r"\bdiagnos",
-    r"\bmedication\b",
-    r"\btherapist\b.*\badvice\b",
-    r"\blegal\s+(advice|counsel)\b",
-    r"\binvest\b.*\b(money|stock|crypto)\b",
-    r"\bprescri",
-]
-
-PROMPT_INJECTION_PATTERNS = [
-    r"ignore\s+(previous|all|prior|above)\s+instructions?",
-    r"you\s+are\s+now\s+",
-    r"act\s+as\s+(if|a|an)\s+",
-    r"pretend\s+(you\s+are|to\s+be)",
-    r"(disregard|forget)\s+(your|all)\s+",
-    r"\[INST\]",
-    r"<<SYS>>",
-    r"<\|im_start\|>",
-    r"jailbreak",
-    r"dan\s+mode",
-]
-
-# Crisis resources shown when safety level is DISTRESS or CRISIS
-CRISIS_RESOURCES = """
-If you're going through something difficult right now, please know you don't have to face it alone.
-
-**Crisis & Mental Health Support:**
-- **988 Suicide & Crisis Lifeline**: Call or text 988 (US)
-- **Crisis Text Line**: Text HOME to 741741
-- **International Association for Suicide Prevention**: https://www.iasp.info/resources/Crisis_Centres/
-- **NAMI Helpline**: 1-800-950-NAMI (6264)
-
-Speaking with a therapist or counselor can make a real difference. You deserve support.
-"""
-
-
-# ─── SafetyFilter ────────────────────────────────────────────────────────────
 
 class SafetyFilter:
+    """
+    Classifies user messages for safety concerns.
+    Conservative: flags borderline cases for human review.
+    """
 
-    def classify(self, text: str) -> SafetyLevel:
-        """
-        Fast pattern-based safety classification.
-        Called synchronously before any AI processing.
-        """
-        if not text:
-            return SafetyLevel.SAFE
+    # Crisis indicators - immediate concern
+    CRISIS_PATTERNS = [
+        r"\b(kill\s+(myself|me)|suicide|end\s+(my\s+)?life)\b",
+        r"\b(hurt\s+(myself|me)|self.?harm|cut\s+myself)\b",
+        r"\b(want\s+to\s+die|better\s+off\s+dead|not\s+worth\s+living)\b",
+        r"\b(overdose|pills?\s+to\s+end|jump\s+(off|from))\b",
+    ]
 
-        lower = text.lower()
+    # Distress indicators - struggling but not immediate
+    DISTRESS_PATTERNS = [
+        r"\b(depressed|depression|hopeless|can'?t\s+go\s+on)\b",
+        r"\b(anxiety|panic\s+attack|can'?t\s+breathe|overwhelmed)\b",
+        r"\b(trauma|ptsd|abuse[sd]|assaulted)\b",
+        r"\b(addiction|relapse|using\s+again|can'?t\s+stop)\b",
+        r"\b(burnout|exhausted|empty|numb)\b",
+    ]
 
-        # Check most severe first
-        for pattern in CRISIS_PATTERNS:
-            if re.search(pattern, lower):
-                return SafetyLevel.CRISIS
+    # Out of scope - medical/legal/financial advice
+    OUT_OF_SCOPE_PATTERNS = [
+        r"\b(diagnose|diagnosis|medication|prescription|therapist|psychiatrist)\b",
+        r"\b(lawsuit|sue|legal\s+advice|lawyer|court)\b",
+        r"\b(invest|stock|crypto|financial\s+advisor|tax\s+advice)\b",
+    ]
 
-        for pattern in DISTRESS_PATTERNS:
-            if re.search(pattern, lower):
-                return SafetyLevel.DISTRESS
+    def classify(self, text: str) -> SafetyResult:
+        """Classify message safety level."""
+        text_lower = text.lower()
 
-        for pattern in CAUTION_PATTERNS:
-            if re.search(pattern, lower):
-                return SafetyLevel.CAUTION
+        # Check crisis first (highest priority)
+        for pattern in self.CRISIS_PATTERNS:
+            if re.search(pattern, text_lower, re.IGNORECASE):
+                return SafetyResult(
+                    level=SafetyLevel.CRISIS,
+                    flag_type="crisis_self_harm",
+                    severity=9,
+                    reason="Detected potential self-harm or crisis language"
+                )
 
-        return SafetyLevel.SAFE
+        # Check distress
+        for pattern in self.DISTRESS_PATTERNS:
+            if re.search(pattern, text_lower, re.IGNORECASE):
+                return SafetyResult(
+                    level=SafetyLevel.DISTRESS,
+                    flag_type="emotional_distress",
+                    severity=6,
+                    reason="Detected emotional distress or mental health struggle"
+                )
+
+        return SafetyResult(
+            level=SafetyLevel.NORMAL,
+            flag_type="none",
+            severity=1,
+            reason="No concerns detected"
+        )
 
     def detect_prompt_injection(self, text: str) -> bool:
-        """Return True if the text contains prompt injection patterns."""
-        lower = text.lower()
-        return any(re.search(p, lower) for p in PROMPT_INJECTION_PATTERNS)
+        """Detect attempts to manipulate the AI."""
+        injection_patterns = [
+            r"ignore\s+(previous|prior|above)\s+instructions",
+            r"system\s+prompt",
+            r"you\s+are\s+now\s+a",
+            r"forget\s+everything",
+            r" DAN |jailbreak",
+            r"\"\"\"[\s\S]*?\"\"\"",  # Triple quote blocks
+        ]
+        text_lower = text.lower()
+        return any(re.search(p, text_lower) for p in injection_patterns)
 
     def detect_out_of_scope(self, text: str) -> bool:
-        """Return True if user is asking for advice outside coaching scope."""
-        lower = text.lower()
-        return any(re.search(p, lower) for p in OUT_OF_SCOPE_PATTERNS)
+        """Detect requests for professional advice."""
+        text_lower = text.lower()
+        return any(
+            re.search(p, text_lower, re.IGNORECASE)
+            for p in self.OUT_OF_SCOPE_PATTERNS
+        )
 
-    def get_safe_response(self, level: SafetyLevel, context: str = "") -> str:
-        """
-        Return a pre-written safe response for each safety level.
-        The AI coach is NOT called when level is CRISIS.
-        """
+    def get_safe_response(self, level: SafetyLevel) -> str:
+        """Get appropriate response for safety level."""
         if level == SafetyLevel.CRISIS:
-            return (
-                "I hear you, and I want you to know that what you're feeling matters. "
-                "This is beyond what I'm able to help with, and I want to make sure "
-                "you get real support right now.\n\n"
-                + CRISIS_RESOURCES
-            )
+            return """I'm not equipped to help with what you're describing, and I want to make sure you get the right support.
+
+If you're in immediate danger, please contact emergency services or go to your nearest hospital.
+
+For support right now:
+• **UK**: Samaritans at 116 123 or text SHOUT to 85258
+• **US**: 988 Suicide & Crisis Lifeline
+• **Nigeria**: 0806 210 6493 (NSPI)
+• **Global**: Befrienders.org (find your country)
+
+Your coach has been notified and will reach out within 24 hours."""
 
         if level == SafetyLevel.DISTRESS:
-            return (
-                "It sounds like you're carrying something really heavy right now. "
-                "I'm not going to push forward with goals or tasks — that's not "
-                "what you need in this moment.\n\n"
-                "What you're feeling is valid. Sometimes the most important thing "
-                "is just to pause and breathe.\n\n"
-                "If things feel really dark, please reach out to someone who can "
-                "genuinely support you:\n\n"
-                + CRISIS_RESOURCES
-            )
+            return """I hear that you're going through a difficult time. While I'm here to support your goals, what you're describing sounds like it needs human care.
 
-        return ""  # SAFE and CAUTION: let the AI respond, but shift mode
+Consider reaching out to:
+• A mental health professional
+• Your doctor or GP
+• A trusted friend or family member
+
+You can also message your OneGoal coach directly — they've been notified and will check in with you."""
+
+        return "I didn't follow that. Could you rephrase?"
 
     def get_out_of_scope_response(self) -> str:
-        return (
-            "That's outside what I can helpfully guide you on. For medical, legal, "
-            "or financial questions, please speak with a qualified professional who "
-            "knows your specific situation. I'm here to help with your identity "
-            "transformation and goal journey."
-        )
+        """Response for professional advice requests."""
+        return """I'm your identity and goal coach, not a professional advisor. For what you're asking, you'd be better served by:
+
+• Medical questions → Your doctor or healthcare provider
+• Legal questions → A qualified solicitor or attorney  
+• Financial questions → A financial advisor or accountant
+
+I'm here for your goals, habits, and who you're becoming. What would you like to work on in that space?"""
 
     async def log_safety_flag(
         self,
@@ -196,42 +156,73 @@ class SafetyFilter:
         level: SafetyLevel,
         excerpt: str,
         ai_response: str,
-        db: AsyncSession,
-    ) -> None:
+        db=None,
+    ) -> Optional[str]:
         """
-        Log safety events to ai_safety_flags table.
-        These are only accessible by the service role — never shown to the user.
+        Log safety flag to database and trigger alert if needed.
+        Returns flag ID if created.
         """
-        severity = {
-            SafetyLevel.CAUTION: 1,
-            SafetyLevel.DISTRESS: 2,
-            SafetyLevel.CRISIS: 3,
-        }.get(level, 1)
-
+        from sqlalchemy import text
+        
+        flag_id = None
+        
         try:
-            await db.execute(
-                text("""
-                    INSERT INTO ai_safety_flags
-                        (user_id, source_type, source_id, flag_type, severity,
-                         excerpt, ai_response, resources_shown)
-                    VALUES
-                        (:user_id, :source_type, :source_id, :flag_type, :severity,
-                         :excerpt, :ai_response, :resources_shown)
-                """),
-                {
-                    "user_id": user_id,
-                    "source_type": source_type,
-                    "source_id": source_id,
-                    "flag_type": level.value,
-                    "severity": severity,
-                    "excerpt": excerpt[:200],
-                    "ai_response": ai_response[:500],
-                    "resources_shown": level in (SafetyLevel.DISTRESS, SafetyLevel.CRISIS),
-                },
-            )
+            # Insert into database
+            if db:
+                result = await db.execute(
+                    text("""
+                        INSERT INTO ai_safety_flags (
+                            user_id, source_type, source_id,
+                            flag_type, severity, excerpt, ai_response,
+                            resources_shown, reviewed
+                        ) VALUES (
+                            :user_id, :source_type, :source_id,
+                            :flag_type, :severity, :excerpt, :ai_response,
+                            TRUE, FALSE
+                        )
+                        RETURNING id
+                    """),
+                    {
+                        "user_id": user_id,
+                        "source_type": source_type,
+                        "source_id": source_id,
+                        "flag_type": level.value,
+                        "severity": 9 if level == SafetyLevel.CRISIS else 6,
+                        "excerpt": excerpt[:500],
+                        "ai_response": ai_response[:500],
+                    }
+                )
+                flag_id = str(result.scalar())
+                
+                logger.info(
+                    "safety_flag_logged",
+                    flag_id=flag_id,
+                    user_id=user_id,
+                    level=level.value,
+                    severity=9 if level == SafetyLevel.CRISIS else 6
+                )
+
+                # Send email alert for crisis/distress
+                if level in (SafetyLevel.CRISIS, SafetyLevel.DISTRESS):
+                    try:
+                        from core.email import send_safety_alert
+                        await send_safety_alert(
+                            user_id=user_id,
+                            flag_type=level.value,
+                            severity=9 if level == SafetyLevel.CRISIS else 6,
+                            excerpt=excerpt,
+                            ai_response=ai_response,
+                        )
+                    except Exception as e:
+                        logger.error("safety_alert_failed", error=str(e))
+                        # Don't fail the request if email fails
+
+            return flag_id
+
         except Exception as e:
-            logger.error("safety_flag_log_failed", error=str(e))
+            logger.error("safety_flag_log_failed", error=str(e), user_id=user_id)
+            return None
 
 
-# Singleton
+# Singleton instance
 safety_filter = SafetyFilter()

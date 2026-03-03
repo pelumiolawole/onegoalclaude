@@ -223,3 +223,32 @@ async def get_user_ai_context(
     await cache_user_context(user_id, context)
 
     return context
+
+# Add to existing auth.py
+
+async def require_admin(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """
+    Dependency to require admin access.
+    For now, checks if user email is in admin list.
+    Later: add is_admin boolean to user model.
+    """
+    # List of admin emails - move to env var or database later
+    ADMIN_EMAILS = [
+        "coach@pelumiolawole.com",
+        # Add other admin emails here
+    ]
+    
+    if current_user.email not in ADMIN_EMAILS:
+        logger.warning(
+            "admin_access_denied",
+            user_id=str(current_user.id),
+            email=current_user.email,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    
+    return current_user
