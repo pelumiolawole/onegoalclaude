@@ -70,7 +70,15 @@ class User(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
-
+    # Add to User class:
+    subscription_plan: Mapped[str] = mapped_column(String(20), nullable=False, default="spark")
+    subscription_status: Mapped[str | None] = mapped_column(String(20))
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(255))
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String(255))
+    current_period_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    current_period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    subscription_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    
     # ─── Relationships ─────────────────────────────────────────────────
     # lazy="selectin" means relationships are loaded automatically
     # on access without triggering lazy-load errors in async context
