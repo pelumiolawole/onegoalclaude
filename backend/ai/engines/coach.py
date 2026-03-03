@@ -294,7 +294,7 @@ class CoachEngine(BaseAIEngine):
 
         return "\n".join(lines)
 
-        async def _load_recent_messages(
+    async def _load_recent_messages(
         self, session_id: str, db: AsyncSession, limit: int = 10
     ) -> list[dict]:
         """Load recent messages in a session for conversation context."""
@@ -323,7 +323,7 @@ class CoachEngine(BaseAIEngine):
         )
         rows = result.fetchall()
         return [{"role": row.role, "content": row.content} for row in rows]
-    
+
     async def _save_message(
         self,
         user_id: str,
