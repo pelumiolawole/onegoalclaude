@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import TextareaAutosize from 'react-textarea-autosize'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
+import { X, Zap, AlertTriangle, AlertCircle } from 'lucide-react'
 
 interface Message {
   id: string
@@ -13,15 +14,71 @@ interface Message {
   streaming?: boolean
 }
 
+interface QuotaWarning {
+  type: 'quota_banner'
+  level: 'notice' | 'urgent' | 'critical'
+  message: string
+  subtext: string
+  usage: {
+    used: number
+    limit: number
+    remaining: number
+  }
+  action: {
+    text: string
+    link: string
+  }
+  style: {
+    dismissible: boolean
+    position: string
+    theme: string
+  }
+}
+
+const quotaConfig = {
+  notice: {
+    icon: Zap,
+    gradient: 'from-amber-500/10 to-orange-500/10',
+    border: 'border-amber-200/20',
+    iconBg: 'bg-amber-500/15',
+    iconColor: 'text-amber-500',
+    titleColor: 'text-amber-200',
+    textColor: 'text-amber-300/80',
+    button: 'bg-amber-600 hover:bg-amber-500 text-white',
+  },
+  urgent: {
+    icon: AlertTriangle,
+    gradient: 'from-orange-500/10 to-red-500/10',
+    border: 'border-orange-200/20',
+    iconBg: 'bg-orange-500/15',
+    iconColor: 'text-orange-500',
+    titleColor: 'text-orange-200',
+    textColor: 'text-orange-300/80',
+    button: 'bg-orange-600 hover:bg-orange-500 text-white',
+  },
+  critical: {
+    icon: AlertCircle,
+    gradient: 'from-red-500/10 to-rose-500/10',
+    border: 'border-red-200/20',
+    iconBg: 'bg-red-500/15',
+    iconColor: 'text-red-500',
+    titleColor: 'text-red-200',
+    textColor: 'text-red-300/80',
+    button: 'bg-red-600 hover:bg-red-500 text-white',
+  },
+}
+
 export default function CoachPage() {
-  const { user }  = useAuthStore()
-  const [sessionId, setSessionId]   = useState<string | null>(null)
-  const [messages,  setMessages]    = useState<Message[]>([])
-  const [input,     setInput]       = useState('')
-  const [streaming, setStreaming]   = useState(false)
-  const [loading,   setLoading]     = useState(true)
+  const { user } = useAuthStore()
+  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [messages, setMessages] = useState<Message[]>([])
+  const [input, setInput] = useState('')
+  const [streaming, setStreaming] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [quotaWarning, setQuotaWarning] = useState<QuotaWarning | null>(null)
+  const [dismissedWarnings, setDismissedWarnings] = useState<Set<string>>(new Set())
   const bottomRef = useRef<HTMLDivElement>(null)
-  const msgId     = useRef(0)
+  const msgId = useRef(0)
 
   // Load active session
   useEffect(() => {
@@ -60,9 +117,10 @@ export default function CoachPage() {
       const res = await api.coach.streamMessage(sessionId, text)
       if (!res.body) throw new Error('No stream body')
 
-      const reader  = res.body.getReader()
+      const reader = res.body.getReader()
       const decoder = new TextDecoder()
-      let fullText  = ''
+      let fullText = ''
+      let warningProcessed = false
 
       while (true) {
         const { done, value } = await reader.read()
@@ -72,14 +130,38 @@ export default function CoachPage() {
         const lines = chunk.split('\n')
 
         for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
-          const data = line.slice(6)
-          if (data === '[DONE]' || data.startsWith('[ERROR]')) break
-          // Unescape newlines from SSE format
-          fullText += data.replace(/\\n/g, '\n')
-          setMessages(prev =>
-            prev.map(m => m.id === aiId ? { ...m, content: fullText } : m)
-          )
+          if (!line.trim()) continue
+          
+          // Handle SSE events (event: system)
+          if (line.startsWith('event: system')) {
+            continue // Next line will be data
+          }
+          
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6)
+            
+            // Check for quota warning
+            if (!warningProcessed && data.includes('"type":"quota_banner"')) {
+              try {
+                const parsed = JSON.parse(data)
+                if (parsed.type === 'quota_banner') {
+                  setQuotaWarning(parsed)
+                  warningProcessed = true
+                  continue
+                }
+              } catch {
+                // Not JSON, treat as regular message
+              }
+            }
+            
+            if (data === '[DONE]' || data.startsWith('[ERROR]')) break
+            
+            // Unescape newlines from SSE format
+            fullText += data.replace(/\\n/g, '\n')
+            setMessages(prev =>
+              prev.map(m => m.id === aiId ? { ...m, content: fullText } : m)
+            )
+          }
         }
       }
 
@@ -106,7 +188,17 @@ export default function CoachPage() {
     }
   }
 
+  function dismissWarning() {
+    if (quotaWarning) {
+      setDismissedWarnings(prev => new Set([...prev, quotaWarning.message]))
+      setQuotaWarning(null)
+    }
+  }
+
   const name = user?.display_name?.split(' ')[0] || 'you'
+
+  // Don't show if dismissed
+  const showWarning = quotaWarning && !dismissedWarnings.has(quotaWarning.message)
 
   return (
     <div className="flex flex-col h-screen max-h-screen">
@@ -161,6 +253,77 @@ export default function CoachPage() {
             </div>
           </motion.div>
         )}
+
+        {/* Quota Warning Banner */}
+        <AnimatePresence>
+          {showWarning && (
+            <motion.div
+              initial={{ opacity: 0, y: -20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.98 }}
+              transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+              className={`relative mb-6 overflow-hidden rounded-2xl border ${quotaConfig[quotaWarning.level].border} bg-gradient-to-r ${quotaConfig[quotaWarning.level].gradient} backdrop-blur-sm`}
+            >
+              <div className="relative flex items-start gap-4 p-5">
+                {/* Icon */}
+                <div className={`flex-shrink-0 rounded-xl ${quotaConfig[quotaWarning.level].iconBg} p-2.5`}>
+                  {(() => {
+                    const Icon = quotaConfig[quotaWarning.level].icon
+                    return <Icon className={`h-5 w-5 ${quotaConfig[quotaWarning.level].iconColor}`} />
+                  })()}
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <h4 className={`font-semibold text-sm ${quotaConfig[quotaWarning.level].titleColor}`}>
+                    {quotaWarning.message}
+                  </h4>
+                  <p className={`mt-1 text-sm ${quotaConfig[quotaWarning.level].textColor}`}>
+                    {quotaWarning.subtext}
+                  </p>
+                  
+                  {/* Usage bar */}
+                  <div className="mt-4 flex items-center gap-3">
+                    <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ 
+                          width: `${(quotaWarning.usage.used / quotaWarning.usage.limit) * 100}%` 
+                        }}
+                        transition={{ duration: 0.8, delay: 0.2 }}
+                        className={`h-full rounded-full ${
+                          quotaWarning.level === 'critical' ? 'bg-red-500' :
+                          quotaWarning.level === 'urgent' ? 'bg-orange-500' : 'bg-amber-500'
+                        }`}
+                      />
+                    </div>
+                    <span className={`text-xs font-medium ${quotaConfig[quotaWarning.level].textColor}`}>
+                      {quotaWarning.usage.used}/{quotaWarning.usage.limit}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => window.location.href = quotaWarning.action.link}
+                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${quotaConfig[quotaWarning.level].button}`}
+                  >
+                    {quotaWarning.action.text}
+                  </button>
+                  {quotaWarning.style.dismissible && (
+                    <button
+                      onClick={dismissWarning}
+                      className={`p-2 rounded-xl hover:bg-white/10 transition-colors ${quotaConfig[quotaWarning.level].textColor}`}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <AnimatePresence initial={false}>
           {messages.map((msg) => (
@@ -257,4 +420,4 @@ const STARTERS = [
   "I've been struggling to stay consistent this week.",
   "What should I focus on right now?",
   "I'm feeling stuck and not sure why.",
-]
+] 

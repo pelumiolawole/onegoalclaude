@@ -183,16 +183,48 @@ async def send_message(
 
     async def event_stream() -> AsyncGenerator[str, None]:
         try:
-            # Send quota info as first SSE event (hidden from UI)
+            # Send polished quota warning as first SSE event if applicable
+            # This renders as an elegant banner above the chat
             if quota_info.get("warning"):
-                warning_data = {
-                    "type": "quota_warning",
-                    "count": quota_info.get("count"),
-                    "limit": quota_info.get("limit"),
-                    "remaining": quota_info.get("remaining"),
-                    "upgrade_message": "You're almost at your daily limit. Upgrade to Forge for unlimited coaching.",
+                remaining = quota_info.get("remaining", 0)
+                count = quota_info.get("count", 0)
+                limit = quota_info.get("limit", 10)
+                
+                # Determine warning level and styling
+                if remaining == 0:
+                    warning_level = "critical"
+                    message = "This is your last message today"
+                    subtext = "Upgrade to Forge for unlimited coaching sessions"
+                elif remaining == 1:
+                    warning_level = "urgent"
+                    message = "1 message remaining today"
+                    subtext = "Make it count — or upgrade to Forge for unlimited access"
+                else:
+                    warning_level = "notice"
+                    message = f"{remaining} messages remaining today"
+                    subtext = "You're making progress. Upgrade anytime for unlimited coaching."
+                
+                warning_event = {
+                    "type": "quota_banner",
+                    "level": warning_level,
+                    "message": message,
+                    "subtext": subtext,
+                    "usage": {
+                        "used": count,
+                        "limit": limit,
+                        "remaining": remaining
+                    },
+                    "action": {
+                        "text": "Upgrade to Forge",
+                        "link": "/settings/upgrade"
+                    },
+                    "style": {
+                        "dismissible": True,
+                        "position": "above_chat",
+                        "theme": "amber" if warning_level == "notice" else "orange" if warning_level == "urgent" else "red"
+                    }
                 }
-                yield f"data: {json.dumps(warning_data)}\n\n"
+                yield f"event: system\nid: quota-warning\ndata: {json.dumps(warning_event)}\n\n"
             
             async for chunk in coach_engine.stream_response(
                 user_id=current_user.id,
@@ -246,3 +278,4 @@ async def end_session(
         """),
         {"session_id": session_id, "user_id": str(current_user.id)},
     )
+    await db.commit()
