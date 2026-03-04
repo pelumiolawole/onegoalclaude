@@ -62,7 +62,7 @@ async def create_portal(
     result = await billing_service.create_customer_portal_session(
         user_id=str(current_user.id),
         stripe_customer_id=current_user.stripe_customer_id,
-        return_url=f"{FRONTEND_URL}/settings/subscription",
+        return_url=f"{FRONTEND_URL}/settings",
     )
     
     return result
@@ -77,14 +77,16 @@ async def get_subscription(
     return {
         "plan": current_user.subscription_plan,
         "status": current_user.subscription_status,
+        "billing_cycle": current_user.billing_cycle,
         "current_period_start": current_user.current_period_start.isoformat() if current_user.current_period_start else None,
         "current_period_end": current_user.current_period_end.isoformat() if current_user.current_period_end else None,
+        "cancel_at_period_end": current_user.cancel_at_period_end or False,
         "stripe_customer_id": current_user.stripe_customer_id,
         "stripe_subscription_id": current_user.stripe_subscription_id,
     }
 
 
-@router.post("/cancel-subscription")
+@router.post("/subscription/cancel")
 async def cancel_subscription(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -114,12 +116,12 @@ async def cancel_subscription(
     }
 
 
-@router.post("/reactivate-subscription")
-async def reactivate_subscription(
+@router.post("/subscription/resume")
+async def resume_subscription(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Reactivate a subscription scheduled to cancel."""
+    """Resume a subscription scheduled to cancel."""
     
     if not current_user.stripe_subscription_id:
         raise HTTPException(
@@ -135,13 +137,29 @@ async def reactivate_subscription(
     if not success:
         raise HTTPException(
             status_code=400,
-            detail="Failed to reactivate subscription"
+            detail="Failed to resume subscription"
         )
     
     return {
         "status": "active",
-        "message": "Your subscription has been reactivated."
+        "message": "Your subscription has been resumed."
     }
+
+
+@router.get("/invoices")
+async def get_invoices(
+    current_user: User = Depends(get_current_user),
+):
+    """Get billing history for current user."""
+    
+    if not current_user.stripe_customer_id:
+        return {"invoices": []}
+    
+    invoices = await billing_service.get_invoices(
+        stripe_customer_id=current_user.stripe_customer_id
+    )
+    
+    return {"invoices": invoices}
 
 
 @router.post("/webhook")

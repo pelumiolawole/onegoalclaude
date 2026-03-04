@@ -194,6 +194,31 @@ class BillingService:
             logger.error("reactivate_subscription_error", error=str(e))
             return False
 
+    async def get_invoices(self, stripe_customer_id: str) -> list:
+        """Get list of invoices for a customer."""
+        try:
+            invoices = self.stripe.Invoice.list(
+                customer=stripe_customer_id,
+                limit=24,  # Last 24 invoices
+                status='paid'
+            )
+            
+            return [
+                {
+                    "id": inv.id,
+                    "amount_due": inv.amount_due,
+                    "amount_paid": inv.amount_paid,
+                    "status": inv.status,
+                    "created": inv.created,
+                    "invoice_pdf": inv.invoice_pdf,
+                    "description": inv.description or f"Subscription - {inv.billing_reason}",
+                }
+                for inv in invoices.data
+            ]
+        except self.stripe.error.StripeError as e:
+            logger.error("Failed to fetch invoices", error=str(e))
+            return []
+
     async def handle_webhook(
         self,
         payload: bytes,

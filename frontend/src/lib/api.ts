@@ -423,6 +423,7 @@ class ApiClient {
       this.request<{
         plan: string | null
         status: string | null
+        billing_cycle: string | null
         current_period_end: string | null
         cancel_at_period_end: boolean
       }>('/billing/subscription'),
@@ -436,6 +437,3 @@ class ApiClient {
     getInvoices: () =>
       this.request<{ invoices: any[] }>('/billing/invoices'),
   }
-}
-
-export const api = new ApiClient()
