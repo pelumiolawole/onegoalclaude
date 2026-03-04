@@ -400,40 +400,43 @@ class ApiClient {
       }>('/profile/share-message', { method: 'POST' }),
   }
 
-  // ── Billing ─────────────────────────────────────────────────
+    // ── Billing ─────────────────────────────────────────────────
 
-  billing = {
-    createCheckout: (data: { plan: 'forge' | 'identity'; billing_cycle: 'monthly' | 'annual' }) =>
-      this.request<{ url: string }>('/billing/checkout', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+    billing = {
+      createCheckout: (data: { plan: 'forge' | 'identity'; billing_cycle: 'monthly' | 'annual' }) =>
+        this.request<{ url: string }>('/billing/checkout', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        }),
 
-    verifySession: (data: { session_id: string }) =>
-      this.request<{
-        plan: string
-        status: string
-        current_period_end: string | null
-      }>('/billing/verify-session', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+      verifySession: (data: { session_id: string }) =>
+        this.request<{
+          plan: string
+          status: string
+          current_period_end: string | null
+        }>('/billing/verify-session', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        }),
 
-    getSubscription: () =>
-      this.request<{
-        plan: string | null
-        status: string | null
-        billing_cycle: string | null
-        current_period_end: string | null
-        cancel_at_period_end: boolean
-      }>('/billing/subscription'),
+      getSubscription: () =>
+        this.request<{
+          plan: string | null
+          status: string | null
+          billing_cycle: string | null
+          current_period_end: string | null
+          cancel_at_period_end: boolean
+        }>('/billing/subscription'),
 
-    cancelSubscription: () =>
-      this.request<{ status: string; message: string }>('/billing/subscription/cancel', { method: 'POST' }),
+      cancelSubscription: () =>
+        this.request<{ status: string; message: string }>('/billing/subscription/cancel', { method: 'POST' }),
 
-    resumeSubscription: () =>
-      this.request<{ status: string; message: string }>('/billing/subscription/resume', { method: 'POST' }),
+      resumeSubscription: () =>
+        this.request<{ status: string; message: string }>('/billing/subscription/resume', { method: 'POST' }),
 
-    getInvoices: () =>
-      this.request<{ invoices: any[] }>('/billing/invoices'),
-  }
+      getInvoices: () =>
+        this.request<{ invoices: any[] }>('/billing/invoices'),
+    }
+  }  // ← THIS CLOSING BRACE WAS MISSING
+
+export const api = new ApiClient()
