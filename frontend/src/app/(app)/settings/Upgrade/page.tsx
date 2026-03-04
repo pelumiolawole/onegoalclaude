@@ -1,3 +1,5 @@
+// frontend/src/app/(app)/settings/upgrade/page.tsx
+
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -39,7 +41,8 @@ export default function UpgradePage() {
     setLoading(true)
     setError('')
     try {
-      const response = await api.billing.createCheckoutSession({
+      // FIX: Use createCheckout, not createCheckoutSession
+      const response = await api.billing.createCheckout({
         plan: plan || 'forge',
         billing_cycle: billingCycle
       })
