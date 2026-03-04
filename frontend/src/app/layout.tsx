@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Playfair_Display, DM_Sans, DM_Mono } from 'next/font/google'
 import './globals.css'
 
@@ -25,6 +25,9 @@ const dmMono = DM_Mono({
 export const metadata: Metadata = {
   title: 'One Goal',
   description: 'Identity transformation through focused daily action.',
+}
+
+export const viewport: Viewport = {
   themeColor: '#0A0908',
 }
 
