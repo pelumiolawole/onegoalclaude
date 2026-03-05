@@ -184,8 +184,8 @@ function DemoPreview() {
   )
 }
 
-// ── Main Component ──────────────────────────────────────────────────
-export function StaticLanding() {
+// ── Main Page ──────────────────────────────────────────────────
+export default function LandingPage() {
   const { isAuthenticated, user } = useAuthStore()
   const router = useRouter()
   const [billing, setBilling] = useState<'monthly' | 'annual'>('monthly')
