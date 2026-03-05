@@ -83,7 +83,7 @@ function ParticleSystem({ count, scrollProgress, mousePosition }: {
   const meshRef = useRef<THREE.Points>(null)
   const { viewport } = useThree()
 
-  const { offsets, sizes, phases } = useMemo(() => {
+  const { geometry, uniforms } = useMemo(() => {
     const offsets = new Float32Array(count * 3)
     const sizes = new Float32Array(count)
     const phases = new Float32Array(count)
@@ -107,17 +107,22 @@ function ParticleSystem({ count, scrollProgress, mousePosition }: {
       phases[i] = Math.random()
     }
 
-    return { offsets, sizes, phases }
-  }, [count])
+    const geo = new THREE.BufferGeometry()
+    geo.setAttribute('offset', new THREE.BufferAttribute(offsets, 3))
+    geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1))
+    geo.setAttribute('phase', new THREE.BufferAttribute(phases, 1))
 
-  const uniforms = useMemo(() => ({
-    uTime: { value: 0 },
-    uColor: { value: new THREE.Color(COLORS.gold.primary) },
-    uBreathPhase: { value: 0 },
-    uMouse: { value: new THREE.Vector2(0, 0) },
-    uMouseInfluence: { value: PARTICLES.MOUSE_INFLUENCE },
-    uScrollProgress: { value: 0 },
-  }), [])
+    const uni = {
+      uTime: { value: 0 },
+      uColor: { value: new THREE.Color(COLORS.gold.primary) },
+      uBreathPhase: { value: 0 },
+      uMouse: { value: new THREE.Vector2(0, 0) },
+      uMouseInfluence: { value: PARTICLES.MOUSE_INFLUENCE },
+      uScrollProgress: { value: 0 },
+    }
+
+    return { geometry: geo, uniforms: uni }
+  }, [count])
 
   useFrame((state) => {
     if (!meshRef.current) return
@@ -138,27 +143,7 @@ function ParticleSystem({ count, scrollProgress, mousePosition }: {
   })
 
   return (
-    <points ref={meshRef}>
-      <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-offset"
-          count={offsets.length / 3}
-          array={offsets}
-          itemSize={3}
-        />
-        <bufferAttribute
-          attach="attributes-size"
-          count={sizes.length}
-          array={sizes}
-          itemSize={1}
-        />
-        <bufferAttribute
-          attach="attributes-phase"
-          count={phases.length}
-          array={phases}
-          itemSize={1}
-        />
-      </bufferGeometry>
+    <points ref={meshRef} geometry={geometry}>
       <shaderMaterial
         vertexShader={vertexShader}
         fragmentShader={fragmentShader}
