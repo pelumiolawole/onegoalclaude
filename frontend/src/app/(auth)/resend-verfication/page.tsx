@@ -1,10 +1,12 @@
 'use client'
 
+import { Suspense } from 'react'
 import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 
-export default function ResendVerificationPage() {
+// Component that uses useSearchParams - internal only
+function ResendVerificationForm() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [email, setEmail] = useState('')
@@ -107,5 +109,29 @@ export default function ResendVerificationPage() {
         </form>
       </div>
     </div>
+  )
+}
+
+// Loading state while Suspense resolves
+function LoadingState() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="max-w-md w-full p-8 bg-white rounded-lg shadow">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded w-3/4 mx-auto" />
+          <div className="h-4 bg-gray-200 rounded w-1/2 mx-auto" />
+          <div className="h-10 bg-gray-200 rounded w-full" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Main export with Suspense boundary
+export default function ResendVerificationPage() {
+  return (
+    <Suspense fallback={<LoadingState />}>
+      <ResendVerificationForm />
+    </Suspense>
   )
 }
