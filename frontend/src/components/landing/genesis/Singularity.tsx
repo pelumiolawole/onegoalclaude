@@ -1,11 +1,24 @@
 'use client'
 
 import { useRef, useMemo, useEffect, useState } from 'react'
-import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { Canvas, useFrame, useThree, extend } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useScrollProgress } from '@/hooks/useScrollProgress'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { PARTICLES, COLORS, CAMERA } from '@/lib/landing/constants'
+
+// Import Three.js JSX types
+import type { ThreeElements } from '@react-three/fiber'
+
+// Extend Three.js types for JSX
+declare module '@react-three/fiber' {
+  interface ThreeElements {
+    points: ThreeElements['points']
+    bufferGeometry: ThreeElements['bufferGeometry']
+    bufferAttribute: ThreeElements['bufferAttribute']
+    shaderMaterial: ThreeElements['shaderMaterial']
+  }
+}
 
 const vertexShader = `
   uniform float uTime;
