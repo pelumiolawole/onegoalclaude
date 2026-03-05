@@ -14,12 +14,14 @@ export default function LoginPage() {
 
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError]       = useState('')
+  const [error, setError]       = useState<string | React.ReactNode>('')
   const [loading, setLoading]   = useState(false)
+  const [showResendLink, setShowResendLink] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+    setShowResendLink(false)
     setLoading(true)
 
     try {
@@ -40,7 +42,23 @@ export default function LoginPage() {
         router.push('/dashboard')
       }
     } catch (err: any) {
-      setError(err.detail || 'Login failed. Check your email and password.')
+      // Handle email not verified error specifically
+      if (err.status === 403 && err.detail?.toLowerCase().includes('not verified')) {
+        setShowResendLink(true)
+        setError(
+          <span>
+            Email not verified.{' '}
+            <Link 
+              href={`/resend-verification?email=${encodeURIComponent(email)}`}
+              className="underline text-[#F59E0B] hover:text-[#FCD34D]"
+            >
+              Resend verification email
+            </Link>
+          </span>
+        )
+      } else {
+        setError(err.detail || 'Login failed. Check your email and password.')
+      }
     } finally {
       setLoading(false)
     }
@@ -115,7 +133,11 @@ export default function LoginPage() {
             <motion.div
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-6 px-4 py-3 rounded-xl bg-red-950/40 border border-red-900/30 text-red-400 text-sm"
+              className={`mb-6 px-4 py-3 rounded-xl text-sm ${
+                showResendLink 
+                  ? 'bg-amber-950/40 border border-amber-900/30 text-amber-400' 
+                  : 'bg-red-950/40 border border-red-900/30 text-red-400'
+              }`}
             >
               {error}
             </motion.div>
