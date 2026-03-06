@@ -132,10 +132,10 @@ class Settings(BaseSettings):
     )
     # Use placeholder until domain is purchased
     email_from_address: str = Field(
-        default="OneGoal <onboarding@resend.dev>",
+        default="One Goal Pro <coach@pelumiolawole.com>",
         description="From address for transactional emails",
     )
-    email_from_name: str = "OneGoal"
+    email_from_name: str = "One Goal Pro"
     
     # Password reset settings
     password_reset_token_expire_hours: int = 24

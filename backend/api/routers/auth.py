@@ -186,7 +186,7 @@ async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
     user.email_verified_at = datetime.now(timezone.utc)
     user.is_active = True
     user.email_verification_token = None
-    user.onboarding_status = OnboardingStatus.INTERVIEW  # Ready for interview
+    user.onboarding_status = OnboardingStatus.INTERVIEW_STARTED  # Ready for interview
     
     await db.commit()
     
