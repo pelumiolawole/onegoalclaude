@@ -162,13 +162,13 @@ async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
         select(User).where(User.email_verification_token == token)
     )
     user = result.scalar_one_or_none()
-    
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired verification link"
         )
-    
+
     # Check if token is expired (24 hours)
     if user.email_verification_sent_at:
         expiry = user.email_verification_sent_at + timedelta(hours=24)
@@ -177,27 +177,27 @@ async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Verification link has expired. Please request a new one."
             )
-    
+
     # Check if already verified
     if user.email_verified_at:
         return {"message": "Email already verified", "verified": True}
-    
+
     # Verify user
     user.email_verified_at = datetime.now(timezone.utc)
     user.is_active = True
     user.email_verification_token = None
     user.onboarding_status = OnboardingStatus.INTERVIEW_STARTED  # Ready for interview
-    
+
     await db.commit()
-    
+
     # Send welcome email
     await email_service.send_welcome_email(
         to_email=user.email,
         display_name=user.display_name
     )
-    
+
     logger.info("email_verified", user_id=str(user.id))
-    
+
     return {
         "message": "Email verified successfully",
         "verified": True,
@@ -216,20 +216,20 @@ async def resend_verification(payload: ForgotPasswordRequest, db: AsyncSession =
         select(User).where(User.email == payload.email.lower())
     )
     user = result.scalar_one_or_none()
-    
+
     # Always return success to prevent email enumeration
     if not user or user.email_verified_at:
         return {
             "status": "accepted",
             "message": "If an account exists with this email, a verification link has been sent."
         }
-    
+
     # Generate new token
     user.email_verification_token = secrets.token_urlsafe(32)
     user.email_verification_sent_at = datetime.now(timezone.utc)
-    
+
     await db.commit()
-    
+
     # Send verification email
     verification_url = f"{settings.frontend_url}/verify-email?token={user.email_verification_token}"
     await email_service.send_verification_email(
@@ -237,9 +237,9 @@ async def resend_verification(payload: ForgotPasswordRequest, db: AsyncSession =
         first_name=user.display_name,
         verification_url=verification_url
     )
-    
+
     logger.info("verification_resent", user_id=str(user.id))
-    
+
     return {
         "status": "accepted",
         "message": "If an account exists with this email, a verification link has been sent."
@@ -381,7 +381,7 @@ async def oauth_callback(
         db.add(user)
         await db.flush()
         logger.info("oauth_user_created", user_id=str(user.id), provider=provider_str)
-        
+
         # Send welcome email for OAuth users too
         await email_service.send_welcome_email(
             to_email=user.email,
@@ -597,17 +597,17 @@ async def forgot_password(
         select(User).where(User.email == payload.email.lower())
     )
     user = result.scalar_one_or_none()
-    
+
     # Generate token regardless of whether user exists (prevents enumeration)
     token = secrets.token_urlsafe(32)
-    
+
     if user:
         # Only store token if user exists and has password auth
         if user.hashed_password:
             expires_at = datetime.now(timezone.utc) + timedelta(
                 hours=settings.password_reset_token_expire_hours
             )
-            
+
             await db.execute(
                 update(User)
                 .where(User.id == user.id)
@@ -618,17 +618,17 @@ async def forgot_password(
                 )
             )
             await db.commit()
-            
+
             # Send email (async, don't block response)
             await email_service.send_password_reset(user.email, token)
-            
+
             logger.info("password_reset_requested", user_id=str(user.id))
         else:
             # OAuth user trying to reset password — log for support
             logger.warning("oauth_password_reset_attempt", 
                          user_id=str(user.id), 
                          email=user.email)
-    
+
     # Always return same response to prevent enumeration
     return {
         "status": "accepted",
@@ -653,31 +653,31 @@ async def reset_password(
         select(User).where(User.password_reset_token == payload.token)
     )
     user = result.scalar_one_or_none()
-    
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired reset token.",
         )
-    
+
     # Validate token
     now = datetime.now(timezone.utc)
-    
+
     if user.password_reset_used_at:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="This reset link has already been used.",
         )
-    
+
     if not user.password_reset_expires_at or user.password_reset_expires_at < now:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Reset token has expired. Please request a new one.",
         )
-    
+
     # Update password and invalidate token
     new_hash = hash_password(payload.new_password)
-    
+
     await db.execute(
         update(User)
         .where(User.id == user.id)
@@ -688,14 +688,14 @@ async def reset_password(
             password_reset_expires_at=None,
         )
     )
-    
+
     # Revoke all existing sessions for security
     await revoke_refresh_token(str(user.id))
-    
+
     await db.commit()
-    
+
     logger.info("password_reset_completed", user_id=str(user.id))
-    
+
     return {
         "status": "success",
         "message": "Password has been reset successfully. Please log in with your new password."
@@ -756,13 +756,13 @@ async def delete_account(
     logger.info("account_deleted", user_id=user_id)
 
 
-# ─── TEMPORARY ADMIN ENDPOINT ─────────────────────────────────────────────────
-# TODO: Remove this endpoint after sending welcome emails to existing users
+# ─── TEMPORARY ADMIN ENDPOINTS ────────────────────────────────────────────────
+# TODO: Remove these endpoints after sending welcome emails to existing users
 
 @router.post(
     "/admin/send-welcome-email",
     status_code=status.HTTP_200_OK,
-    summary="TEMPORARY: Send welcome email to user by email",
+    summary="TEMPORARY: Send welcome email to single user by email",
 )
 async def admin_send_welcome_email(
     email: str,
@@ -770,48 +770,125 @@ async def admin_send_welcome_email(
 ):
     """
     TEMPORARY ADMIN ENDPOINT: Send welcome email to a specific user by email.
-    
-    Use this to send welcome emails to users who registered before 
-    the welcome email automation was implemented.
-    
     TODO: Remove this endpoint after use.
     """
     result = await db.execute(
         select(User).where(User.email == email.lower())
     )
     user = result.scalar_one_or_none()
-    
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
-    
+
     # Only send to verified users
     if not user.email_verified_at:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot send welcome email: user email not verified"
         )
-    
+
     try:
         await email_service.send_welcome_email(
             to_email=user.email,
             display_name=user.display_name
         )
-        
+
         logger.info("admin_welcome_email_sent", user_id=str(user.id), email=user.email)
-        
+
         return {
             "status": "success",
             "message": f"Welcome email sent to {user.email}",
             "user_id": str(user.id),
             "display_name": user.display_name
         }
-        
+
     except Exception as e:
         logger.error("admin_welcome_email_failed", email=user.email, error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to send welcome email: {str(e)}"
         )
+
+
+@router.post(
+    "/admin/send-welcome-email-to-all",
+    status_code=status.HTTP_200_OK,
+    summary="TEMPORARY: Send welcome email to ALL verified users",
+)
+async def admin_send_welcome_email_to_all(
+    confirm: bool = False,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    TEMPORARY ADMIN ENDPOINT: Send welcome email to ALL verified users.
+
+    This sends the welcome email to every user who has verified their email
+    but may not have received the welcome email (registered before automation).
+
+    Parameters:
+        confirm: Must be set to True to actually send emails (safety check)
+
+    TODO: Remove this endpoint after use.
+    """
+    # Safety check - require explicit confirmation
+    if not confirm:
+        # Preview mode - show how many users would receive emails
+        result = await db.execute(
+            select(User).where(
+                User.email_verified_at.is_not(None)
+            )
+        )
+        users = result.scalars().all()
+
+        return {
+            "status": "preview",
+            "message": f"This would send welcome emails to {len(users)} verified user(s).",
+            "user_count": len(users),
+            "users": [
+                {
+                    "email": u.email,
+                    "display_name": u.display_name,
+                    "verified_at": u.email_verified_at.isoformat() if u.email_verified_at else None
+                }
+                for u in users
+            ],
+            "instruction": "Add '?confirm=true' to the URL to actually send the emails."
+        }
+
+    # Actually send emails
+    result = await db.execute(
+        select(User).where(
+            User.email_verified_at.is_not(None)
+        )
+    )
+    users = result.scalars().all()
+
+    sent_count = 0
+    failed_emails = []
+
+    for user in users:
+        try:
+            await email_service.send_welcome_email(
+                to_email=user.email,
+                display_name=user.display_name
+            )
+            sent_count += 1
+            logger.info("bulk_welcome_email_sent", user_id=str(user.id), email=user.email)
+        except Exception as e:
+            failed_emails.append({
+                "email": user.email,
+                "error": str(e)
+            })
+            logger.error("bulk_welcome_email_failed", email=user.email, error=str(e))
+
+    return {
+        "status": "completed",
+        "message": f"Welcome emails sent to {sent_count} user(s).",
+        "total_users": len(users),
+        "sent_count": sent_count,
+        "failed_count": len(failed_emails),
+        "failed_emails": failed_emails
+    }
