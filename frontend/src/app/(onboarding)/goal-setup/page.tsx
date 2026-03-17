@@ -33,7 +33,8 @@ export default function GoalPage() {
         setTimeout(() => router.push('/preview'), 800)
       }
     } catch (err: any) {
-      setError(err.detail || 'Something went wrong. Please try again.')
+      const detail = typeof err.detail === 'object' ? err.detail?.message : err.detail
+      setError(detail || 'Something went wrong. Please try again.')
       setStage('input')
     }
   }
@@ -47,7 +48,8 @@ export default function GoalPage() {
       setStage('done')
       setTimeout(() => router.push('/preview'), 800)
     } catch (err: any) {
-      setError(err.detail || 'Something went wrong.')
+      const detail = typeof err.detail === 'object' ? err.detail?.message : err.detail
+      setError(detail || 'Something went wrong.')
       setStage('clarifying')
     }
   }
@@ -56,7 +58,7 @@ export default function GoalPage() {
     <div className="max-w-xl mx-auto w-full">
       <AnimatePresence mode="wait">
 
-        {/* ── Goal Input ──────────────────────────────────── */}
+        {/* Goal Input */}
         {(stage === 'input' || stage === 'processing') && (
           <motion.div
             key="input"
@@ -83,7 +85,7 @@ export default function GoalPage() {
               <TextareaAutosize
                 value={rawGoal}
                 onChange={e => setRawGoal(e.target.value)}
-                placeholder="e.g. Build a product that generates $10k MRR, Get to a place where I feel strong and energetic every day, Write and publish a book about my experience…"
+                placeholder="e.g. Build a product that generates $10k MRR, Get to a place where I feel strong and energetic every day, Write and publish a book about my experience..."
                 minRows={4}
                 className="w-full bg-transparent text-[#E8E2DC] placeholder:text-[#3D3630] text-base leading-relaxed resize-none focus:outline-none px-4 py-3 font-sans"
               />
@@ -98,7 +100,7 @@ export default function GoalPage() {
                 {stage === 'processing' ? (
                   <span className="flex items-center gap-2">
                     <span className="w-4 h-4 border-2 border-[#0A0908]/30 border-t-[#0A0908] rounded-full animate-spin" />
-                    Analyzing…
+                    Analyzing...
                   </span>
                 ) : (
                   'Build my strategy'
@@ -119,7 +121,7 @@ export default function GoalPage() {
                     onClick={() => setRawGoal(ex)}
                     className="w-full text-left px-4 py-3 rounded-xl bg-[#141210] border border-white/5 text-[#7A6E65] text-sm hover:border-white/10 hover:text-[#A09690] transition-all"
                   >
-                    "{ex}"
+                    &ldquo;{ex}&rdquo;
                   </button>
                 ))}
               </div>
@@ -127,7 +129,7 @@ export default function GoalPage() {
           </motion.div>
         )}
 
-        {/* ── Clarifying Questions ────────────────────────── */}
+        {/* Clarifying Questions */}
         {stage === 'clarifying' && (
           <motion.div
             key="clarify"
@@ -159,7 +161,7 @@ export default function GoalPage() {
               <TextareaAutosize
                 value={clarifyAnswers}
                 onChange={e => setClarifyAnswers(e.target.value)}
-                placeholder="Answer the questions above — one at a time or all together…"
+                placeholder="Answer the questions above — one at a time or all together..."
                 minRows={4}
                 className="w-full bg-transparent text-[#E8E2DC] placeholder:text-[#3D3630] text-base leading-relaxed resize-none focus:outline-none px-4 py-3 font-sans"
               />
@@ -175,7 +177,7 @@ export default function GoalPage() {
           </motion.div>
         )}
 
-        {/* ── Done ────────────────────────────────────────── */}
+        {/* Done */}
         {stage === 'done' && (
           <motion.div
             key="done"
@@ -188,10 +190,10 @@ export default function GoalPage() {
               transition={{ duration: 0.6 }}
               className="w-16 h-16 rounded-2xl bg-[#F59E0B]/20 flex items-center justify-center mx-auto mb-6"
             >
-              <span className="text-3xl">✦</span>
+              <span className="text-3xl">&#10022;</span>
             </motion.div>
             <h2 className="font-display text-2xl text-[#F5F1ED]">
-              Strategy built. Reviewing now…
+              Strategy built. Reviewing now...
             </h2>
           </motion.div>
         )}

@@ -96,10 +96,6 @@ async def get_onboarding_status(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """
-    Returns the user's current onboarding stage and what they need to do next.
-    The frontend uses this to route to the correct onboarding screen.
-    """
     status_map = {
         OnboardingStatus.CREATED: {
             "step": 0,
@@ -153,17 +149,6 @@ async def send_interview_message(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ) -> InterviewMessageResponse:
-    """
-    Send a message in the AI discovery interview.
-
-    The interview is conversational — just respond naturally.
-    The AI guides you through understanding your life direction,
-    vision, habits, strengths, and what you truly want to achieve.
-
-    When the interview completes, onboarding_status advances to
-    'interview_complete' and the frontend should route to goal definition.
-    """
-    # Validate onboarding stage — allow interview_started and created
     if current_user.onboarding_status not in (
         OnboardingStatus.CREATED,
         OnboardingStatus.INTERVIEW_STARTED,
@@ -183,7 +168,6 @@ async def send_interview_message(
         db=db,
     )
 
-    # Refresh user to get updated onboarding status
     await db.refresh(current_user)
 
     return InterviewMessageResponse(
@@ -202,10 +186,6 @@ async def get_interview_state(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """
-    Returns conversation history and current phase.
-    Used to restore the interview UI after a page refresh.
-    """
     result = await db.execute(
         text("""
             SELECT current_phase, messages, extracted_data, is_complete
@@ -218,12 +198,11 @@ async def get_interview_state(
 
     if not row:
         return {
-            "current_phase": "intro",
+            "current_phase": "tension",
             "messages": [],
             "is_complete": False,
         }
 
-    # Only return user and assistant messages — strip system messages
     messages = [
         m for m in (row.messages or [])
         if m.get("role") in ("user", "assistant")
@@ -245,10 +224,6 @@ async def restart_interview(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    """
-    Clear interview state and restart from the beginning.
-    Only available before goal is defined.
-    """
     if current_user.onboarding_status not in (
         OnboardingStatus.CREATED,
         OnboardingStatus.INTERVIEW_STARTED,
@@ -262,7 +237,7 @@ async def restart_interview(
     await db.execute(
         text("""
             UPDATE onboarding_interview_state
-            SET current_phase = 'intro',
+            SET current_phase = 'tension',
                 messages = '[]'::jsonb,
                 extracted_data = '{}'::jsonb,
                 is_complete = FALSE,
@@ -272,10 +247,7 @@ async def restart_interview(
         {"user_id": str(current_user.id)},
     )
     await db.execute(
-        text("""
-            UPDATE users SET onboarding_status = 'created'
-            WHERE id = :user_id
-        """),
+        text("UPDATE users SET onboarding_status = 'created' WHERE id = :user_id"),
         {"user_id": str(current_user.id)},
     )
     await invalidate_user_context(str(current_user.id))
@@ -297,24 +269,35 @@ async def submit_goal(
     Submit your goal for AI decomposition into a full identity-based strategy.
 
     Two possible responses:
-    1. needs_clarification=True  → AI has questions. Call /goal/clarify with answers.
-    2. needs_clarification=False → Strategy is ready. Review it, then call /goal/confirm.
+    1. needs_clarification=True  — AI has questions. Call /goal/clarify with answers.
+    2. needs_clarification=False — Strategy is ready. Review it, then call /goal/confirm.
 
-    The AI refines your goal, identifies who you need to become,
-    generates objectives and identity traits.
+    Accepts any onboarding status except ACTIVE — users who reach this page
+    directly (e.g. skipped or refreshed) are silently advanced to interview_complete
+    so they are never blocked.
     """
-    if current_user.onboarding_status not in (
-        OnboardingStatus.INTERVIEW_COMPLETE,
-        OnboardingStatus.GOAL_DEFINED,  # allow resubmission
-    ):
+    # Only block users who are already fully active
+    if current_user.onboarding_status == OnboardingStatus.ACTIVE:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
-                "code": "interview_required",
-                "message": "Complete the discovery interview before defining your goal.",
+                "code": "already_active",
+                "message": "Your account is already active.",
                 "current_status": current_user.onboarding_status.value,
             },
         )
+
+    # Silently advance users who haven't finished the interview
+    # so they are never blocked by a status gate
+    if current_user.onboarding_status in (
+        OnboardingStatus.CREATED,
+        OnboardingStatus.INTERVIEW_STARTED,
+    ):
+        await db.execute(
+            text("UPDATE users SET onboarding_status = 'interview_complete' WHERE id = :user_id"),
+            {"user_id": str(current_user.id)},
+        )
+        await db.refresh(current_user)
 
     result = await goal_decomposer.decompose(
         user_id=current_user.id,
@@ -335,10 +318,6 @@ async def clarify_goal(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ) -> GoalDecompositionResponse:
-    """
-    Called after /goal returns needs_clarification=True.
-    Provide answers to the clarifying questions.
-    """
     result = await goal_decomposer.decompose_with_answers(
         user_id=current_user.id,
         raw_goal=payload.raw_goal,
@@ -356,10 +335,6 @@ async def preview_goal_strategy(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """
-    Get the current decomposed goal strategy for review.
-    User reviews this before confirming activation.
-    """
     if current_user.onboarding_status not in (
         OnboardingStatus.GOAL_DEFINED,
         OnboardingStatus.STRATEGY_GENERATED,
@@ -369,7 +344,6 @@ async def preview_goal_strategy(
             detail="No goal strategy found. Submit your goal first.",
         )
 
-    # Get goal with objectives and traits
     goal_result = await db.execute(
         text("""
             SELECT
@@ -388,7 +362,6 @@ async def preview_goal_strategy(
     if not goal:
         raise HTTPException(status_code=404, detail="No active goal found.")
 
-    # Get objectives
     obj_result = await db.execute(
         text("""
             SELECT id, title, description, success_criteria,
@@ -412,7 +385,6 @@ async def preview_goal_strategy(
         for r in obj_result.fetchall()
     ]
 
-    # Get identity traits
     trait_result = await db.execute(
         text("""
             SELECT id, name, description, category,
@@ -460,10 +432,6 @@ async def confirm_goal(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """
-    User confirms they're happy with the decomposed strategy.
-    Advances onboarding to strategy_generated stage.
-    """
     if current_user.onboarding_status != OnboardingStatus.GOAL_DEFINED:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -471,10 +439,7 @@ async def confirm_goal(
         )
 
     await db.execute(
-        text("""
-            UPDATE users SET onboarding_status = 'strategy_generated'
-            WHERE id = :user_id
-        """),
+        text("UPDATE users SET onboarding_status = 'strategy_generated' WHERE id = :user_id"),
         {"user_id": str(current_user.id)},
     )
 
@@ -492,13 +457,6 @@ async def activate_account(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """
-    Final onboarding step. Activates the account and generates the
-    first 3 days of tasks so the user has something to do immediately.
-
-    After this call, the user is fully onboarded (status = 'active')
-    and should be redirected to the dashboard.
-    """
     if current_user.onboarding_status != OnboardingStatus.STRATEGY_GENERATED:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -509,19 +467,16 @@ async def activate_account(
             },
         )
 
-    # Generate first 3 days of tasks
     initial_tasks = await task_generator.generate_initial_tasks(
         user_id=current_user.id,
         db=db,
     )
 
-    # Activate the user
     await db.execute(
         text("UPDATE users SET onboarding_status = 'active' WHERE id = :user_id"),
         {"user_id": str(current_user.id)},
     )
 
-    # Mark first objective as in_progress
     await db.execute(
         text("""
             UPDATE objectives SET status = 'in_progress', started_at = NOW()
