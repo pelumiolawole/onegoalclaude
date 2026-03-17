@@ -413,6 +413,13 @@ class ApiClient {
         if (!res.ok) throw new Error('Upload failed')
         return res.json() as Promise<{ avatar_url: string }>
       })
+    saveTimezone: async (timezone: string) => {
+      return apiRequest('/api/profile/timezone', {
+        method: 'POST',
+        body: JSON.stringify({ timezone }),
+  })
+},
+
     },
 
     generateBio: () =>
