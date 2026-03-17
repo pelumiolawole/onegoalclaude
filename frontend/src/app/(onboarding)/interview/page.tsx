@@ -99,7 +99,7 @@ export default function InterviewPage() {
       <div className="text-center max-w-lg mx-auto">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
           <div className="w-16 h-16 rounded-2xl bg-[#F59E0B]/10 border border-[#F59E0B]/20 flex items-center justify-center mx-auto mb-8">
-            <span className="text-2xl">✦</span>
+            <span className="text-2xl">&#10022;</span>
           </div>
           <h1 className="font-display text-4xl text-[#F59E0B] mb-4">The Discovery Interview</h1>
           <p className="text-[#A09690] text-lg leading-relaxed mb-4">
@@ -123,7 +123,7 @@ export default function InterviewPage() {
               className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               {msg.role === 'assistant' && (
                 <div className="w-8 h-8 rounded-full bg-[#F59E0B]/15 border border-[#F59E0B]/20 flex items-center justify-center mr-3 mt-0.5 shrink-0">
-                  <span className="text-[#F59E0B] text-xs">✦</span>
+                  <span className="text-[#F59E0B] text-xs">&#10022;</span>
                 </div>
               )}
               <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-[0.9375rem] leading-relaxed ${
@@ -138,7 +138,7 @@ export default function InterviewPage() {
           {loading && (
             <motion.div key="loading" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex justify-start">
               <div className="w-8 h-8 rounded-full bg-[#F59E0B]/15 border border-[#F59E0B]/20 flex items-center justify-center mr-3 shrink-0">
-                <span className="text-[#F59E0B] text-xs">✦</span>
+                <span className="text-[#F59E0B] text-xs">&#10022;</span>
               </div>
               <div className="bg-[#1E1B18] border border-white/5 px-4 py-3 rounded-2xl rounded-tl-sm">
                 <TypingDots />
