@@ -14,8 +14,10 @@ export default function ProgressPage() {
   const { data: traits }   = useSWR('/progress/traits/timeline', () => api.progress.getTraitsTimeline())
   const { data: streak }   = useSWR('/progress/streak',          () => api.progress.getStreak())
 
-  const hasTimeline = timeline?.timeline?.length > 0
-  const hasTraits   = traits?.traits?.length > 0
+  const hasTimeline     = timeline?.timeline?.length > 0
+  const hasTraits       = traits?.traits?.length > 0
+  const hasStarted      = scores && scores.transformation_score > 0
+  const hasStreakData    = streak && Object.keys(streak.calendar || {}).length > 0
 
   return (
     <div className="p-6 md:p-8 max-w-3xl mx-auto space-y-6">
@@ -46,9 +48,11 @@ export default function ProgressPage() {
                   {scores.transformation_score.toFixed(1)}
                 </span>
                 <span className="text-[#5C524A] text-sm mb-1.5">/ 100</span>
-                <span className={`mb-1.5 text-sm font-mono px-2 py-0.5 rounded-lg ${gradeStyle(scores.grade)}`}>
-                  {scores.grade}
-                </span>
+                {hasStarted && (
+                  <span className={`mb-1.5 text-sm font-mono px-2 py-0.5 rounded-lg ${gradeStyle(scores.grade)}`}>
+                    {scores.grade}
+                  </span>
+                )}
               </div>
             </div>
             <div className={`text-right text-sm ${momentumColor(scores.momentum_state)}`}>
@@ -57,38 +61,44 @@ export default function ProgressPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {Object.entries(scores.breakdown || {}).map(([key, val]: any) => (
-              <div key={key} className="bg-[#1E1B18] rounded-xl p-3">
-                <p className="text-[#3D3630] text-[10px] uppercase tracking-wider font-mono mb-1">
-                  {val.label}
-                </p>
-                <p className="text-[#C4BBB5] text-lg font-mono">{val.score.toFixed(0)}</p>
-                <div className="flex items-center justify-between mt-1">
-                  <span className={`text-xs font-mono px-1.5 py-0.5 rounded ${gradeStyle(val.grade)}`}>
-                    {val.grade}
-                  </span>
-                  <span className="text-[#3D3630] text-[10px]">{val.weight}</span>
+          {hasStarted ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {Object.entries(scores.breakdown || {}).map(([key, val]: any) => (
+                <div key={key} className="bg-[#1E1B18] rounded-xl p-3">
+                  <p className="text-[#3D3630] text-[10px] uppercase tracking-wider font-mono mb-1">
+                    {val.label}
+                  </p>
+                  <p className="text-[#C4BBB5] text-lg font-mono">{val.score.toFixed(0)}</p>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className={`text-xs font-mono px-1.5 py-0.5 rounded ${gradeStyle(val.grade)}`}>
+                      {val.grade}
+                    </span>
+                    <span className="text-[#3D3630] text-[10px]">{val.weight}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[#3D3630] text-sm border-t border-white/5 pt-4">
+              Complete your first task to start building your score.
+            </p>
+          )}
         </motion.div>
       ) : (
         <ScoreSkeleton />
       )}
 
       {/* Score timeline chart */}
-      {hasTimeline ? (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-[#141210] border border-white/5 rounded-2xl p-5"
-        >
-          <p className="text-[#5C524A] text-xs uppercase tracking-widest font-mono mb-5">
-            30-day trajectory
-          </p>
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="bg-[#141210] border border-white/5 rounded-2xl p-5"
+      >
+        <p className="text-[#5C524A] text-xs uppercase tracking-widest font-mono mb-5">
+          30-day trajectory
+        </p>
+        {hasTimeline ? (
           <ResponsiveContainer width="100%" height={160}>
             <LineChart data={timeline.timeline}>
               <CartesianGrid stroke="#1E1B18" strokeDasharray="0" vertical={false} />
@@ -127,32 +137,24 @@ export default function ProgressPage() {
               />
             </LineChart>
           </ResponsiveContainer>
-        </motion.div>
-      ) : (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-[#141210] border border-white/5 rounded-2xl p-5"
-        >
-          <p className="text-[#5C524A] text-xs uppercase tracking-widest font-mono mb-3">
-            30-day trajectory
+        ) : (
+          <p className="text-[#3D3630] text-sm">
+            Your trajectory will appear here after your first completed task.
           </p>
-          <p className="text-[#3D3630] text-sm">Complete your first task to start tracking your trajectory.</p>
-        </motion.div>
-      )}
+        )}
+      </motion.div>
 
       {/* Identity traits */}
-      {hasTraits ? (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="bg-[#141210] border border-white/5 rounded-2xl p-5"
-        >
-          <p className="text-[#5C524A] text-xs uppercase tracking-widest font-mono mb-4">
-            Identity traits
-          </p>
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+        className="bg-[#141210] border border-white/5 rounded-2xl p-5"
+      >
+        <p className="text-[#5C524A] text-xs uppercase tracking-widest font-mono mb-4">
+          Identity traits
+        </p>
+        {hasTraits ? (
           <div className="space-y-4">
             {traits.traits.map((trait: any, i: number) => (
               <motion.div
@@ -167,12 +169,7 @@ export default function ProgressPage() {
                     <span className="text-[#3D3630] text-xs">{trait.category}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`text-xs ${
-                      trait.trend === 'growing'   ? 'text-[#4ADE80]' :
-                      trait.trend === 'declining' ? 'text-[#F87171]' : 'text-[#5C524A]'
-                    }`}>
-                      {trait.trend === 'growing' ? '&#8593;' : trait.trend === 'declining' ? '&#8595;' : '&#8594;'}
-                    </span>
+                    <TrendArrow trend={trait.trend} />
                     <span className="text-[#5C524A] text-xs font-mono">
                       {trait.current.toFixed(1)} / {trait.target.toFixed(1)}
                     </span>
@@ -194,33 +191,25 @@ export default function ProgressPage() {
               </motion.div>
             ))}
           </div>
-        </motion.div>
-      ) : (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="bg-[#141210] border border-white/5 rounded-2xl p-5"
-        >
-          <p className="text-[#5C524A] text-xs uppercase tracking-widest font-mono mb-3">
-            Identity traits
+        ) : (
+          <p className="text-[#3D3630] text-sm">
+            Your identity traits will appear here as you complete tasks.
           </p>
-          <p className="text-[#3D3630] text-sm">Your identity traits will appear here as you complete tasks.</p>
-        </motion.div>
-      )}
+        )}
+      </motion.div>
 
       {/* Streak calendar */}
-      {streak && (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-[#141210] border border-white/5 rounded-2xl p-5"
-        >
-          <div className="flex items-center justify-between mb-5">
-            <p className="text-[#5C524A] text-xs uppercase tracking-widest font-mono">
-              30-day activity
-            </p>
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="bg-[#141210] border border-white/5 rounded-2xl p-5"
+      >
+        <div className="flex items-center justify-between mb-5">
+          <p className="text-[#5C524A] text-xs uppercase tracking-widest font-mono">
+            30-day activity
+          </p>
+          {streak && (
             <div className="flex items-center gap-4">
               <span className="text-[#C4BBB5] text-sm">
                 <span className="font-mono text-[#F59E0B]">{streak.current_streak}</span>
@@ -231,22 +220,55 @@ export default function ProgressPage() {
                 <span className="text-[#5C524A] ml-1 text-xs">best</span>
               </span>
             </div>
-          </div>
+          )}
+        </div>
 
+        {hasStreakData ? (
           <div className="grid grid-cols-[repeat(30,1fr)] gap-0.5">
-            {Object.entries(streak.calendar || {}).slice(-30).map(([date, data]: any) => (
+            {Object.entries(streak.calendar || {}).slice(-30).map(([d, data]: any) => (
               <div
-                key={date}
-                title={date}
+                key={d}
+                title={d}
                 className={`aspect-square rounded-sm ${
                   data.completed ? 'bg-[#F59E0B]' : 'bg-[#1E1B18]'
                 }`}
               />
             ))}
           </div>
-        </motion.div>
-      )}
+        ) : (
+          <p className="text-[#3D3630] text-sm">
+            Your activity calendar will fill in as you show up each day.
+          </p>
+        )}
+      </motion.div>
+
     </div>
+  )
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function TrendArrow({ trend }: { trend: string }) {
+  if (trend === 'growing') {
+    return (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ADE80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="12" y1="19" x2="12" y2="5" />
+        <polyline points="5 12 12 5 19 12" />
+      </svg>
+    )
+  }
+  if (trend === 'declining') {
+    return (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F87171" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19" />
+        <polyline points="19 12 12 19 5 12" />
+      </svg>
+    )
+  }
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5C524A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
   )
 }
 
