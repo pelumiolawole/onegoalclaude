@@ -21,8 +21,8 @@ export default function DashboardPage() {
     { refreshInterval: 60_000 }
   )
 
-  const { data: historyData } = useSWR(
-    historyOpen ? '/tasks/history' : null,
+  const { data: historyData, isLoading: historyLoading } = useSWR(
+    historyOpen ? '/tasks/history/30' : null,
     () => api.tasks.getHistory(30)
   )
 
@@ -62,7 +62,11 @@ export default function DashboardPage() {
         <h1 className="font-display text-3xl text-[#F5F1ED]">
           {name}
           {scores?.momentum_state === 'rising' && (
-            <span className="ml-2 text-[#4ADE80] text-lg">&#8593;</span>
+            <span className="ml-2 text-[#4ADE80] text-lg">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{display:'inline'}}>
+                <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
+              </svg>
+            </span>
           )}
         </h1>
       </motion.div>
@@ -102,9 +106,10 @@ export default function DashboardPage() {
               value={scores?.transformation ?? 0}
               primary
             />
-            <ScoreTile label="Streak" value={`${scores?.streak ?? 0}d`} sub="current" />
+            {/* Use font-mono for numeric tiles to prevent 0 rendering as O */}
+            <ScoreTile label="Streak" value={scores?.streak ?? 0} unit="d" sub="current" />
             <ScoreTile label="Momentum" value={momentumLabel(scores?.momentum_state)} sub={scores?.momentum_state} colored />
-            <ScoreTile label="Active" value={`${scores?.days_active ?? 0}d`} sub="total days" />
+            <ScoreTile label="Active" value={scores?.days_active ?? 0} unit="d" sub="total days" />
           </motion.div>
 
           {/* Week Activity */}
@@ -138,12 +143,12 @@ export default function DashboardPage() {
                   <div key={trait.name}>
                     <div className="flex justify-between items-center mb-1.5">
                       <span className="text-[#C4BBB5] text-sm capitalize">{trait.name}</span>
-                      <span className={`text-xs font-mono ${
+                      <span className={`text-xs font-mono flex items-center gap-1 ${
                         trait.trend === 'growing' ? 'text-[#4ADE80]' :
                         trait.trend === 'declining' ? 'text-[#F87171]' : 'text-[#5C524A]'
                       }`}>
-                        {trait.trend === 'growing' ? '&#8593;' : trait.trend === 'declining' ? '&#8595;' : '&#8212;'}
-                        {' '}{trait.progress_pct.toFixed(0)}%
+                        <TrendArrowSmall trend={trait.trend} />
+                        {trait.progress_pct.toFixed(0)}%
                       </span>
                     </div>
                     <div className="h-1.5 bg-[#1E1B18] rounded-full overflow-hidden">
@@ -196,7 +201,7 @@ export default function DashboardPage() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="bg-[#F59E0B]/5 border border-[#F59E0B]/15 rounded-2xl p-5 cursor-pointer hover:border-[#F59E0B]/25 transition-colors"
+              className="bg-[#F59E0B]/5 border border-[#F59E0B]/15 rounded-2xl p-5"
             >
               <p className="text-[#F59E0B] text-xs uppercase tracking-widest mb-2 font-mono">
                 Weekly review
@@ -209,7 +214,7 @@ export default function DashboardPage() {
             </motion.div>
           )}
 
-          {/* Task History */}
+          {/* Past Tasks */}
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -238,13 +243,13 @@ export default function DashboardPage() {
                   className="overflow-hidden"
                 >
                   <div className="border-t border-white/5">
-                    {!historyData ? (
+                    {historyLoading ? (
                       <div className="px-5 py-6 space-y-3">
                         {[...Array(4)].map((_, i) => (
                           <div key={i} className="h-12 bg-[#1E1B18] rounded-xl animate-pulse" />
                         ))}
                       </div>
-                    ) : historyData.tasks.length === 0 ? (
+                    ) : !historyData || historyData.tasks.length === 0 ? (
                       <p className="px-5 py-6 text-[#3D3630] text-sm">
                         No past tasks yet. Complete your first task to start building history.
                       </p>
@@ -269,12 +274,9 @@ export default function DashboardPage() {
                             key={t.id}
                             className="px-5 py-3.5 flex items-start gap-3 hover:bg-[#1E1B18] transition-colors"
                           >
-                            {/* Status dot */}
-                            <div className="mt-1 shrink-0">
+                            <div className="mt-0.5 shrink-0">
                               <StatusDot status={t.status} />
                             </div>
-
-                            {/* Content */}
                             <div className="flex-1 min-w-0">
                               <p className={`text-sm leading-snug ${
                                 t.status === 'completed' ? 'text-[#C4BBB5]' : 'text-[#5C524A]'
@@ -287,8 +289,6 @@ export default function DashboardPage() {
                                 </p>
                               )}
                             </div>
-
-                            {/* Date + reflection */}
                             <div className="shrink-0 text-right">
                               <p className="text-[#3D3630] text-xs font-mono">
                                 {formatDate(t.date)}
@@ -329,31 +329,43 @@ export default function DashboardPage() {
 
 // ── Sub-components ─────────────────────────────────────────────────────────
 
+function TrendArrowSmall({ trend }: { trend: string }) {
+  if (trend === 'growing') return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
+    </svg>
+  )
+  if (trend === 'declining') return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/>
+    </svg>
+  )
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+  )
+}
+
 function StatusDot({ status }: { status: string }) {
-  if (status === 'completed') {
-    return (
-      <div className="w-5 h-5 rounded-full bg-[#4ADE80]/15 border border-[#4ADE80]/30 flex items-center justify-center">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#4ADE80" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="20 6 9 17 4 12" />
-        </svg>
-      </div>
-    )
-  }
-  if (status === 'skipped') {
-    return (
-      <div className="w-5 h-5 rounded-full bg-[#F59E0B]/10 border border-[#F59E0B]/20 flex items-center justify-center">
-        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" strokeWidth="3" strokeLinecap="round">
-          <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-      </div>
-    )
-  }
-  // missed / pending
+  if (status === 'completed') return (
+    <div className="w-5 h-5 rounded-full bg-[#4ADE80]/15 border border-[#4ADE80]/30 flex items-center justify-center">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#4ADE80" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+    </div>
+  )
+  if (status === 'skipped') return (
+    <div className="w-5 h-5 rounded-full bg-[#F59E0B]/10 border border-[#F59E0B]/20 flex items-center justify-center">
+      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" strokeWidth="3" strokeLinecap="round">
+        <line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+    </div>
+  )
   return (
     <div className="w-5 h-5 rounded-full bg-[#F87171]/10 border border-[#F87171]/20 flex items-center justify-center">
       <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#F87171" strokeWidth="3" strokeLinecap="round">
-        <line x1="18" y1="6" x2="6" y2="18" />
-        <line x1="6" y1="6" x2="18" y2="18" />
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
       </svg>
     </div>
   )
@@ -362,13 +374,17 @@ function StatusDot({ status }: { status: string }) {
 function ChevronIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="6 9 12 15 18 9" />
+      <polyline points="6 9 12 15 18 9"/>
     </svg>
   )
 }
 
-function ScoreTile({ label, value, sub, colored }: {
-  label: string; value: string; sub?: string; colored?: boolean
+function ScoreTile({ label, value, unit, sub, colored }: {
+  label: string
+  value: string | number
+  unit?: string
+  sub?: string
+  colored?: boolean
 }) {
   const colorMap: Record<string, string> = {
     rising:   'text-[#4ADE80]',
@@ -381,7 +397,9 @@ function ScoreTile({ label, value, sub, colored }: {
   return (
     <div className="bg-[#141210] border border-white/5 rounded-2xl p-4">
       <p className="text-[#3D3630] text-xs uppercase tracking-wider mb-1 font-mono">{label}</p>
-      <p className={`font-display text-2xl ${textColor}`}>{value}</p>
+      <p className={`font-mono text-2xl ${textColor}`}>
+        {value}{unit && <span className="text-lg">{unit}</span>}
+      </p>
       {sub && <p className="text-[#3D3630] text-xs mt-0.5 capitalize">{sub}</p>}
     </div>
   )
@@ -428,9 +446,7 @@ function formatDate(dateStr: string): string {
   const today = new Date()
   const yesterday = new Date(today)
   yesterday.setDate(today.getDate() - 1)
-
   if (d.toDateString() === today.toDateString()) return 'Today'
   if (d.toDateString() === yesterday.toDateString()) return 'Yesterday'
-
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
