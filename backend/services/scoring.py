@@ -6,9 +6,9 @@ Centralized scoring service for real-time and batch score updates.
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
-from core.logging import get_logger
+import structlog
 
-logger = get_logger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 async def trigger_score_update(db: AsyncSession, user_id: str) -> dict:
