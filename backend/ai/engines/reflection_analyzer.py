@@ -12,7 +12,7 @@ Analyzes user's daily reflection responses to:
   6. Update identity profile traits and behavioral patterns
   7. Signal task difficulty adjustment for tomorrow
 
-Also contains WeeklyReviewEngine — generates the weekly evolution letter.
+Also contains WeeklyReviewEngine -- generates the weekly evolution letter.
 """
 
 import json
@@ -38,7 +38,7 @@ class ReflectionAnalyzerEngine(BaseAIEngine):
     """
 
     engine_name = "reflection_analyzer"
-    default_temperature = 0.3  # low temperature: scoring needs consistency
+    default_temperature = 0.3
 
     async def analyze(
         self,
@@ -48,18 +48,9 @@ class ReflectionAnalyzerEngine(BaseAIEngine):
         task_id: UUID | str | None,
         db: AsyncSession,
     ) -> dict:
-        """
-        Analyze a submitted reflection.
-
-        questions_answers format:
-            [{"question": "...", "answer": "...", "question_type": "execution|emotion|identity"}]
-
-        Returns the analysis dict and writes it to the reflections table.
-        """
         uid = str(user_id)
         rid = str(reflection_id)
 
-        # Combine all answers into a single text for safety check and embedding
         full_text = " ".join(qa.get("answer", "") for qa in questions_answers)
 
         # Safety check
@@ -75,7 +66,6 @@ class ReflectionAnalyzerEngine(BaseAIEngine):
                 ai_response=safe_response,
                 db=db,
             )
-            # Store the safe response as AI feedback and mark resistance
             await self._save_analysis(
                 reflection_id=rid,
                 analysis={
@@ -97,20 +87,15 @@ class ReflectionAnalyzerEngine(BaseAIEngine):
             )
             return {"ai_feedback": safe_response, "safety_triggered": True}
 
-        # Get user context
         context = await context_builder.get_context(uid, db)
         context_str = context_builder.format_for_prompt(context)
-
-        # Get today's task context
         task_context = await self._get_task_context(task_id, db) if task_id else "No task context available."
 
-        # Build analysis prompt
         system_prompt = get_prompt("reflection_analyzer").format(
             user_context=context_str,
             task_context=task_context,
         )
 
-        # Format Q&A for the prompt
         qa_text = "\n".join(
             f"Q: {qa['question']}\nA: {qa.get('answer', '(no answer)')}"
             for qa in questions_answers
@@ -129,25 +114,17 @@ class ReflectionAnalyzerEngine(BaseAIEngine):
         analysis = self._parse_json(response_raw, fallback={})
         analysis["word_count"] = len(full_text.split())
 
-        # Save analysis to reflection record
         await self._save_analysis(rid, analysis, db)
-
-        # Store embedding for semantic memory
         await memory_retrieval.store_reflection_embedding(rid, full_text, db)
-
-        # Update identity traits based on evidence
         await self._update_traits(uid, analysis.get("trait_evidence", []), db)
 
-        # Update behavioral patterns if resistance or breakthrough detected
         if analysis.get("resistance_detected") or analysis.get("breakthrough_detected"):
             await self._update_behavioral_patterns(uid, analysis, db)
 
-        # Apply profile updates from analysis
         profile_updates = analysis.get("profile_updates", {})
         if profile_updates:
             await self._apply_profile_updates(uid, profile_updates, db)
 
-        # Invalidate context cache
         await context_builder.invalidate(uid)
 
         logger.info(
@@ -174,15 +151,10 @@ class ReflectionAnalyzerEngine(BaseAIEngine):
         task_id: UUID | str,
         db: AsyncSession,
     ) -> list[dict]:
-        """
-        Generate 2-3 personalized reflection questions for today's task.
-        Called when the user enters reflection mode.
-        """
         uid = str(user_id)
         context = await context_builder.get_context(uid, db)
         task_context = await self._get_task_context(task_id, db)
         context_str = context_builder.format_for_prompt(context)
-
         momentum = context.get("scores", {}).get("momentum_state", "holding")
 
         prompt = f"""Generate 2-3 reflection questions for this person after completing their daily becoming task.
@@ -200,7 +172,7 @@ Rules:
 - Always include one question about identity (who they're becoming)
 - If momentum is struggling/declining, include an emotional question
 - If momentum is rising, include a growth edge question
-- Questions should be specific to THIS task and THIS person — never generic
+- Questions should be specific to THIS task and THIS person -- never generic
 - Each question should be 1 sentence, open-ended, and thought-provoking
 
 Return a JSON array:
@@ -218,7 +190,6 @@ Return a JSON array:
 
         questions = self._parse_json(response_raw, fallback=[])
         if not isinstance(questions, list):
-            # Fallback questions if generation fails
             return [
                 {"question": "What actually happened when you did this today?", "question_type": "execution"},
                 {"question": "What did this reveal about who you're becoming?", "question_type": "identity"},
@@ -227,7 +198,6 @@ Return a JSON array:
         return questions
 
     async def _get_task_context(self, task_id, db: AsyncSession) -> str:
-        """Get task details for context in analysis."""
         result = await db.execute(
             text("""
                 SELECT identity_focus, title, description
@@ -241,7 +211,15 @@ Return a JSON array:
         return f"Identity focus: {row.identity_focus}\nTask: {row.title}\n{row.description}"
 
     async def _save_analysis(self, reflection_id: str, analysis: dict, db: AsyncSession) -> None:
-        """Write analysis results back to the reflection record."""
+        """
+        Write analysis results back to the reflection record.
+
+        FIX: Use CAST(:param AS jsonb) instead of :param::jsonb
+        asyncpg cannot parse the ::type cast syntax when mixed with
+        positional $N parameters -- it causes a PostgresSyntaxError.
+        """
+        trait_evidence_json = json.dumps(analysis.get("trait_evidence", []))
+
         await db.execute(
             text("""
                 UPDATE reflections SET
@@ -254,7 +232,7 @@ Return a JSON array:
                     breakthrough_detected = :breakthrough,
                     ai_insight = :ai_insight,
                     ai_feedback_shown = :ai_feedback,
-                    trait_evidence = :trait_evidence::jsonb,
+                    trait_evidence = CAST(:trait_evidence AS jsonb),
                     analyzed_at = NOW()
                 WHERE id = :reflection_id
             """),
@@ -269,14 +247,13 @@ Return a JSON array:
                 "breakthrough": analysis.get("breakthrough_detected", False),
                 "ai_insight": analysis.get("ai_insight"),
                 "ai_feedback": analysis.get("ai_feedback"),
-                "trait_evidence": json.dumps(analysis.get("trait_evidence", [])),
+                "trait_evidence": trait_evidence_json,
             },
         )
 
     async def _update_traits(
         self, user_id: str, trait_evidence: list[dict], db: AsyncSession
     ) -> None:
-        """Update identity trait scores based on reflection evidence."""
         for evidence in trait_evidence:
             trait_name = evidence.get("trait_name")
             score_delta = float(evidence.get("score_delta", 0))
@@ -285,7 +262,6 @@ Return a JSON array:
             if not trait_name or score_delta == 0:
                 continue
 
-            # Clamp delta: never change a trait by more than 0.5 in one day
             score_delta = max(-0.5, min(0.5, score_delta))
             if signal == "negative":
                 score_delta = -abs(score_delta)
@@ -305,7 +281,6 @@ Return a JSON array:
     async def _update_behavioral_patterns(
         self, user_id: str, analysis: dict, db: AsyncSession
     ) -> None:
-        """Log detected behavioral patterns from this reflection."""
         pattern_type = "breakthrough" if analysis.get("breakthrough_detected") else "resistance"
         signals = analysis.get("resistance_signals") or analysis.get("breakthrough_signals") or []
         pattern_name = signals[0] if signals else f"Unknown {pattern_type}"
@@ -330,7 +305,6 @@ Return a JSON array:
     async def _apply_profile_updates(
         self, user_id: str, updates: dict, db: AsyncSession
     ) -> None:
-        """Apply partial updates to the identity profile from analysis signals."""
         if not updates:
             return
 
@@ -338,7 +312,6 @@ Return a JSON array:
         params = {"user_id": user_id}
 
         if updates.get("resistance_triggers"):
-            # Append new triggers, don't replace existing ones
             update_parts.append(
                 "resistance_triggers = array(SELECT DISTINCT unnest(resistance_triggers || :new_triggers::text[]))"
             )
@@ -361,25 +334,22 @@ Return a JSON array:
         )
 
 
-# ─── Weekly Review Engine ────────────────────────────────────────────────────
+# ─── Weekly Review Engine ─────────────────────────────────────────────────────
 
 class WeeklyReviewEngine(BaseAIEngine):
     """
-    Generates the weekly evolution letter — the highest-retention feature.
-    Runs every Sunday evening.
+    Generates the weekly evolution letter -- the highest-retention feature.
+    Runs every Monday morning.
     """
 
     engine_name = "weekly_review"
-    default_temperature = 0.8  # warmer, more narrative
+    default_temperature = 0.8
 
     async def generate_weekly_review(
         self,
         user_id: UUID | str,
         db: AsyncSession | None = None,
     ) -> dict:
-        """
-        Generate and store the weekly evolution letter.
-        """
         from core.database import get_db_context
 
         uid = str(user_id)
@@ -390,8 +360,6 @@ class WeeklyReviewEngine(BaseAIEngine):
 
             context = await context_builder.get_context(uid, db, force_refresh=True)
             context_str = context_builder.format_for_prompt(context)
-
-            # Gather week's data
             week_data = await self._gather_week_data(uid, week_start, week_end, db)
 
             system_prompt = get_prompt("weekly_review").format(
@@ -409,7 +377,6 @@ class WeeklyReviewEngine(BaseAIEngine):
                 max_tokens=1000,
             )
 
-            # Store the review
             await db.execute(
                 text("""
                     INSERT INTO weekly_reviews (
@@ -448,7 +415,6 @@ class WeeklyReviewEngine(BaseAIEngine):
     async def _gather_week_data(
         self, user_id: str, week_start: date, week_end: date, db: AsyncSession
     ) -> dict:
-        """Collect all data points for the week."""
         result = await db.execute(
             text("""
                 SELECT
@@ -475,7 +441,6 @@ class WeeklyReviewEngine(BaseAIEngine):
             "score_delta": float(row.score_delta) if row.score_delta else 0.0,
         }
 
-        # Get reflection themes for the week
         themes_result = await db.execute(
             text("""
                 SELECT DISTINCT unnest(key_themes) as theme
