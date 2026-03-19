@@ -4,7 +4,7 @@ ai/memory/retrieval.py
 Semantic memory retrieval using pgvector.
 
 This is what gives the AI coach the ability to say:
-"Three weeks ago you mentioned feeling stuck on mornings —
+"Three weeks ago you mentioned feeling stuck on mornings --
 how has that been since you shifted your schedule?"
 
 Instead of loading the full conversation history (expensive, hits token limits),
@@ -12,8 +12,8 @@ we embed each reflection and coach message, then retrieve the semantically
 closest ones to the current context at inference time.
 
 Two retrieval modes:
-    1. Reflection memory  — find past reflections similar to current query
-    2. Coach memory       — find past coach exchanges relevant to current message
+    1. Reflection memory  -- find past reflections similar to current query
+    2. Coach memory       -- find past coach exchanges relevant to current message
 """
 
 from uuid import UUID
@@ -45,18 +45,22 @@ class MemoryRetrieval(BaseAIEngine):
     ) -> None:
         """
         Generate and store embedding for a reflection.
-        Called after reflection is saved.
+
+        FIX: Use f-string to inline the embedding value directly into the SQL.
+        asyncpg cannot parse :param::vector syntax when mixed with $N params.
+        Inlining is safe here because the embedding is a float array we generate
+        ourselves -- not user input.
         """
         embedding = await self._embed(text_content)
         embedding_str = f"[{','.join(str(v) for v in embedding)}]"
 
         await db.execute(
-            text("""
+            text(f"""
                 UPDATE reflections
-                SET content_embedding = :embedding::vector
+                SET content_embedding = '{embedding_str}'::vector
                 WHERE id = :reflection_id
             """),
-            {"embedding": embedding_str, "reflection_id": str(reflection_id)},
+            {"reflection_id": str(reflection_id)},
         )
 
     async def store_message_embedding(
@@ -70,12 +74,12 @@ class MemoryRetrieval(BaseAIEngine):
         embedding_str = f"[{','.join(str(v) for v in embedding)}]"
 
         await db.execute(
-            text("""
+            text(f"""
                 UPDATE ai_coach_messages
-                SET content_embedding = :embedding::vector
+                SET content_embedding = '{embedding_str}'::vector
                 WHERE id = :message_id
             """),
-            {"embedding": embedding_str, "message_id": str(message_id)},
+            {"message_id": str(message_id)},
         )
 
     async def store_profile_embedding(
@@ -89,12 +93,12 @@ class MemoryRetrieval(BaseAIEngine):
         embedding_str = f"[{','.join(str(v) for v in embedding)}]"
 
         await db.execute(
-            text("""
+            text(f"""
                 UPDATE identity_profiles
-                SET profile_embedding = :embedding::vector
+                SET profile_embedding = '{embedding_str}'::vector
                 WHERE user_id = :user_id
             """),
-            {"embedding": embedding_str, "user_id": str(user_id)},
+            {"user_id": str(user_id)},
         )
 
     # ─── Semantic Retrieval ──────────────────────────────────────────
@@ -108,11 +112,6 @@ class MemoryRetrieval(BaseAIEngine):
     ) -> list[dict]:
         """
         Find the most semantically relevant past reflections to the query.
-
-        Used by:
-            - Coach: to reference relevant past struggles or wins
-            - Weekly review: to find themes across the week
-            - Profile updater: to find evidence for trait scoring
         """
         query_embedding = await self._embed(query)
         embedding_str = f"[{','.join(str(v) for v in query_embedding)}]"
@@ -168,7 +167,6 @@ class MemoryRetrieval(BaseAIEngine):
     ) -> list[dict]:
         """
         Find past coach exchanges most relevant to the current message.
-        Returns user messages and the AI responses that followed them.
         """
         query_embedding = await self._embed(query)
         embedding_str = f"[{','.join(str(v) for v in query_embedding)}]"
