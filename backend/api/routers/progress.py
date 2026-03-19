@@ -9,9 +9,10 @@ GET  /progress/streak           — streak data with history
 GET  /progress/timeline         — score history over time (for charts)
 GET  /progress/traits/timeline  — trait score history
 GET  /progress/weekly-reviews   — list of all weekly reviews
+POST /progress/refresh-scores   — manually trigger score recalculation
 """
 
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime, timezone
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
@@ -21,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.dependencies.auth import get_onboarded_user
 from core.database import get_db
 from db.models.user import User
+from services.scoring import trigger_score_update
 
 logger = structlog.get_logger()
 
@@ -445,3 +447,47 @@ async def get_traits_timeline(
     ]
 
     return {"traits": traits}
+
+
+# ─── Refresh Scores ───────────────────────────────────────────────────────────
+
+@router.post(
+    "/refresh-scores",
+    summary="Manually trigger score recalculation",
+)
+async def refresh_scores(
+    current_user: User = Depends(get_onboarded_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Manually trigger score recalculation for current user.
+    Useful when scores appear stale or after data fixes.
+    """
+    uid = str(current_user.id)
+
+    try:
+        # Trigger score recalculation
+        updated_scores = await trigger_score_update(db, uid)
+
+        logger.info("manual_score_refresh", user_id=uid, scores=updated_scores)
+
+        return {
+            "status": "success",
+            "message": "Scores recalculated successfully",
+            "scores": {
+                "transformation": updated_scores.get("transformation_score", 0),
+                "consistency": updated_scores.get("consistency_score", 0),
+                "depth": updated_scores.get("depth_score", 0),
+                "momentum": updated_scores.get("momentum_score", 0),
+                "alignment": updated_scores.get("alignment_score", 0),
+                "state": updated_scores.get("momentum_state", "holding"),
+            },
+            "recalculated_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+    except Exception as e:
+        logger.error("manual_score_refresh_failed", user_id=uid, error=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=f"Score recalculation failed: {str(e)}",
+        )

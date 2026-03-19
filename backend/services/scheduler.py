@@ -411,6 +411,8 @@ async def run_intervention_check() -> None:
         async with get_db_context() as db:
             from sqlalchemy import text
 
+            # FIXED: Removed pm.updated_at reference which doesn't exist in progress_metrics
+            # Using metric_date instead to check for recent declining momentum
             result = await db.execute(text("""
                 SELECT u.id
                 FROM users u
@@ -420,7 +422,7 @@ async def run_intervention_check() -> None:
                     SELECT 1 FROM progress_metrics pm
                     WHERE pm.user_id = u.id
                       AND pm.momentum_state = 'declining'
-                      AND pm.updated_at > NOW() - INTERVAL '24 hours'
+                      AND pm.metric_date >= CURRENT_DATE - INTERVAL '7 days'
                   )
                   AND NOT EXISTS (
                     SELECT 1 FROM coach_interventions ci

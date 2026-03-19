@@ -26,6 +26,7 @@ from api.dependencies.auth import get_onboarded_user
 from core.cache import invalidate_user_context
 from core.database import get_db
 from db.models.user import User
+from services.scoring import trigger_score_update
 
 logger = structlog.get_logger()
 
@@ -44,7 +45,7 @@ class SkipTaskRequest(BaseModel):
     reason: str = Field(min_length=3, max_length=500)
 
 
-# ─── Continuous Guardrail Helper ──────────────────────────────────────────────
+# ─── Continuous Guardrail Helper ────────────────────────────────────────────────
 
 async def ensure_today_task_exists(user_id: str, db: AsyncSession) -> None:
     """
@@ -526,17 +527,33 @@ async def complete_task(
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found or already completed.")
 
+    # FIXED: Insert progress_metrics with proper columns and trigger score update
     await db.execute(
         text("""
-            INSERT INTO progress_metrics (user_id, metric_date, task_completed)
-            VALUES (:user_id, :date, TRUE)
+            INSERT INTO progress_metrics (
+                user_id, metric_date, task_completed, 
+                task_id, completed_at, updated_at
+            )
+            VALUES (:user_id, :date, TRUE, :task_id, NOW(), NOW())
             ON CONFLICT (user_id, metric_date)
-            DO UPDATE SET task_completed = TRUE
+            DO UPDATE SET
+                task_completed = TRUE,
+                task_id = EXCLUDED.task_id,
+                completed_at = EXCLUDED.completed_at,
+                updated_at = NOW()
         """),
-        {"user_id": uid, "date": row.scheduled_date},
+        {"user_id": uid, "date": row.scheduled_date, "task_id": task_id},
     )
 
     new_streak = await _update_streak(uid, row.scheduled_date, db)
+
+    # FIXED: Trigger immediate score recalculation
+    try:
+        updated_scores = await trigger_score_update(db, uid)
+        logger.info("scores_updated_after_task", user_id=uid, task_id=task_id, scores=updated_scores)
+    except Exception as e:
+        logger.error("score_update_failed_after_task", user_id=uid, task_id=task_id, error=str(e))
+        # Don't fail the task completion if scoring fails
 
     await db.commit()
     await _log_engagement(uid, "task_complete", db)
@@ -549,6 +566,7 @@ async def complete_task(
         "message": "Task complete. Take a moment to reflect.",
         "reflection_available": True,
         "streak": new_streak,
+        "scores_updated": True,
     }
 
 
@@ -573,14 +591,30 @@ async def skip_task(
         {"id": task_id, "user_id": uid, "reason": payload.reason},
     )
 
+    # FIXED: Insert progress_metrics with proper columns including skip tracking
     await db.execute(
         text("""
-            INSERT INTO progress_metrics (user_id, metric_date, task_completed)
-            VALUES (:user_id, CURRENT_DATE, FALSE)
-            ON CONFLICT (user_id, metric_date) DO NOTHING
+            INSERT INTO progress_metrics (
+                user_id, metric_date, task_completed,
+                task_id, skipped, skip_reason, updated_at
+            )
+            VALUES (:user_id, CURRENT_DATE, FALSE, :task_id, TRUE, :reason, NOW())
+            ON CONFLICT (user_id, metric_date)
+            DO UPDATE SET
+                task_completed = FALSE,
+                skipped = TRUE,
+                skip_reason = EXCLUDED.skip_reason,
+                updated_at = NOW()
         """),
-        {"user_id": uid},
+        {"user_id": uid, "task_id": task_id, "reason": payload.reason},
     )
+
+    # FIXED: Trigger score recalculation after skip (scores should reflect missed day)
+    try:
+        updated_scores = await trigger_score_update(db, uid)
+        logger.info("scores_updated_after_skip", user_id=uid, task_id=task_id, scores=updated_scores)
+    except Exception as e:
+        logger.error("score_update_failed_after_skip", user_id=uid, task_id=task_id, error=str(e))
 
     await db.commit()
     logger.info("task_skipped", user_id=uid, task_id=task_id, reason=payload.reason)

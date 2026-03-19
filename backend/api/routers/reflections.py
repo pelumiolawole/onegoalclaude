@@ -26,6 +26,7 @@ from api.dependencies.auth import get_onboarded_user
 from core.cache import invalidate_user_context
 from core.database import get_db
 from db.models.user import User
+from services.scoring import trigger_score_update
 
 logger = structlog.get_logger()
 
@@ -166,17 +167,17 @@ async def submit_reflection(
         db=db,
     )
 
-    # FIX: Column is depth_score not avg_depth_score
-    # Also: weekly_avg_depth exists but depth_score is the per-day column
+    # FIXED: Insert progress_metrics with depth_score and trigger score update
     await db.execute(
         text("""
             INSERT INTO progress_metrics
-                (user_id, metric_date, reflection_submitted, depth_score)
-            VALUES (:user_id, :date, TRUE, :depth)
+                (user_id, metric_date, reflection_submitted, depth_score, updated_at)
+            VALUES (:user_id, :date, TRUE, :depth, NOW())
             ON CONFLICT (user_id, metric_date)
             DO UPDATE SET
                 reflection_submitted = TRUE,
-                depth_score = EXCLUDED.depth_score
+                depth_score = EXCLUDED.depth_score,
+                updated_at = NOW()
         """),
         {
             "user_id": uid,
@@ -184,6 +185,14 @@ async def submit_reflection(
             "depth": analysis.get("depth_score", 5.0),
         },
     )
+
+    # FIXED: Trigger immediate score recalculation after reflection submission
+    try:
+        updated_scores = await trigger_score_update(db, uid)
+        logger.info("scores_updated_after_reflection", user_id=uid, reflection_id=str(reflection_id), scores=updated_scores)
+    except Exception as e:
+        logger.error("score_update_failed_after_reflection", user_id=uid, reflection_id=str(reflection_id), error=str(e))
+        # Don't fail the reflection submission if scoring fails
 
     await db.commit()
     await invalidate_user_context(uid)
@@ -201,6 +210,7 @@ async def submit_reflection(
         "ai_feedback": analysis.get("ai_feedback", ""),
         "sentiment": analysis.get("sentiment"),
         "safety_triggered": analysis.get("safety_triggered", False),
+        "scores_updated": True,
     }
 
 
