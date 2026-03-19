@@ -9,7 +9,7 @@ import { useAuthStore } from '@/stores/auth'
 import OneGoalLogo from '@/components/OneGoalLogo'
 
 const SUPABASE_URL = 'https://guqlwplztxxiseyenbye.supabase.co'
-const REDIRECT_URL = 'https://onegoalpro.vercel.app/auth/callback'
+const REDIRECT_URL = 'https://onegoalpro.app/auth/callback'
 
 export default function SignupPage() {
   const router = useRouter()
