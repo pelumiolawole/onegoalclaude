@@ -211,7 +211,7 @@ async def _send_daily_task_email_for_user(user_id: str) -> None:
                     u.display_name,
                     dt.title AS task_title,
                     dt.description AS task_description,
-                    g.identity_anchor
+                    g.required_identity
                 FROM users u
                 JOIN goals g ON g.user_id = u.id AND g.status = 'active'
                 JOIN daily_tasks dt ON dt.user_id = u.id
