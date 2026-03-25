@@ -1,62 +1,37 @@
-# OneGoal Pro — Current Status
+cat > TODO_SWEEP.md << 'EOF'
+# Claude Code — Project Sweep Instructions
 
-## ✅ Completed
-- Supabase DB (one-goal-v2) with pgvector
-- All migrations executed
-- Railway backend deployed and running
-- Redis connected
-- OpenAI API key configured
-- Login / signup flow working
-- Interview engine working (SQL CAST fix applied)
-- Interview completes and saves to DB
-- Routing fixed: login now routes by onboarding_step
-- Goal setup working (POST /api/onboarding/goal-setup)
-- Activate working — 3 tasks generated via OpenAI
-- Dashboard loading (progress, timeline, traits, goals)
-- Coach sessions endpoint working
-- Settings page created (/settings)
-- Tab-switch logout fixed (token check on mount only)
-- last_task_date column added to identity_profiles
-- Date arithmetic fix in task_generator (INTERVAL cast)
-- Logo integrated across all 11 placements
-- Landing page stats updated
-- AI writing cleanup completed across all frontend pages
+You are being asked to conduct a full audit of this codebase.
 
-## ⏭️ Next Steps (in order)
+## Your task
 
-### 1. Full dashboard smoke test
-- Check Today tab — tasks showing?
-- Check Progress tab — scores, timeline, traits loading?
-- Check Coach tab — session starting?
-- Check Goal tab — active goal showing?
-- Check Settings — name/email showing, logout working?
+Read every file in this repository and produce a structured report covering:
 
-### 2. Task completion flow
-- Can you mark a task done?
-- Does the streak update?
-- Does the score update?
+### 1. What has been fully built and is working
+List every feature, endpoint, component, and system that appears complete and functional.
 
-### 3. Coach conversation
-- Start a session
-- Does it respond with context about your goal?
-- Does it remember between messages?
+### 2. What is partially built / halfway done
+List every file, function, or feature that exists but appears incomplete — missing logic, 
+TODO comments, placeholder returns, empty functions, unconnected components, or dead imports.
 
-### 4. Daily task generation (scheduled)
-- Tasks are generated for tomorrow every night via APScheduler
-- Monitor Railway logs to confirm it runs
+### 3. What is referenced but does not exist
+List any imports, function calls, or references to files/modules that cannot be found 
+in the codebase.
 
-### 5. Book launch / IIC Networks work
-- Pending separate session
+### 4. What exists but appears unused / orphaned
+List any files, functions, or components that are defined but never imported or called.
 
-## Known Issues
-- "od" display bug on dashboard streak/days (cosmetic, low priority)
-- Railway logs hitting 500/sec rate limit during heavy load (not a bug, just verbose logging)
+### 5. Known issues visible in code
+List any obvious bugs, deprecated patterns, hardcoded values that should be env vars,
+or dangerous patterns (e.g. no error handling on critical paths).
 
-## Deployments
-- Frontend: onegoalpro.vercel.app (Vercel)
-- Backend:  onegoalclaude-production.up.railway.app (Railway)
-- Database: Supabase one-goal-v2
+### 6. Full file tree
+Produce a complete annotated file tree of the project.
 
-## Your Account
-- Email: olawolepelumisunday@gmail.com
-- onboarding_step: 5 (active — dashboard access)
+### 7. Environment variables
+List every env var referenced across the codebase (frontend and backend).
+
+## Output format
+Produce a markdown file. Be exhaustive. Do not summarise — list everything you find.
+Save your output to: docs/CODEBASE_AUDIT.md
+EOF
