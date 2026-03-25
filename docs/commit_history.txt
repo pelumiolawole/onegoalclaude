@@ -1,0 +1,179 @@
+32b26b3 | 2026-03-25 | new todo
+1a37595 | 2026-03-20 | refactor(subscription): simplify status to active/ended only
+7a9caea | 2026-03-20 | feat(billing): show readable plan name in invoice history
+36a87ef | 2026-03-20 | fix(billing): handle cancel_at_period_end in webhook to prevent race condition
+b0f6d64 | 2026-03-20 | fix(migration-010): comprehensive scoring system fix
+b8a888a | 2026-03-20 | fix(migration): update 011_Enhanced_Coach_Memory_System.sql to match deployed schema
+313963e | 2026-03-20 | feat(coach): complete V2 upgrade with PMOS, psychological frameworks, and enhanced memory system
+0720e03 | 2026-03-19 | fix(scoring): repair score pipeline - add missing columns, real-time triggers, manual refresh endpoint
+965fed8 | 2026-03-19 | fix(scoring): repair score pipeline - add missing columns, real-time triggers, manual refresh endpoint
+50ec053 | 2026-03-19 | domain update
+f9140e2 | 2026-03-19 | fix: progress_metrics column depth_score not avg_depth_score, weekly review query 🎯
+f637a72 | 2026-03-19 | fix: progress_metrics depth_score column name 🎯
+9a31491 | 2026-03-19 | fix: retrieval.py vector embedding ::vector cast syntax for asyncpg 🎯
+e8f073c | 2026-03-19 | fix: reflection analyzer ::jsonb cast syntax breaking asyncpg 🎯
+a7d515c | 2026-03-19 | fix: reflection submission JSON bug, missing db.commit, route ordering 🎯
+69feb3a | 2026-03-19 | fix: morning sweep task_type filter removed, daily generation catches all users 🎯
+0b22497 | 2026-03-19 | feat: Google OAuth on login and signup, auth callback page 🎯
+faa905b | 2026-03-18 | fix: tasks.py indentation, history route ordering, include pending tasks in history 🎯
+aa006e0 | 2026-03-18 | fix: od display bug, HTML entities in traits, past tasks SWR key 🎯
+16aa7dd | 2026-03-18 | fix: bio in sidebar via UserSummary, task history route ordering, api.ts type 🎯
+a84c5d4 | 2026-03-18 | feat: task history panel on dashboard with status indicator
+cb2e19f | 2026-03-18 | feat: avatar in sidebar top-right, Profile nav item replaces settings link + Porgess page redress
+40b40ae | 2026-03-18 | fix: streak updates immediately on completion, task guardrail type-agnostic, progress traits SWR key, timezone endpoint
+11b0847 | 2026-03-18 | interview update
+dbf6eb0 | 2026-03-18 | system propmts update
+90dbd12 | 2026-03-17 | Merge branch 'main' of https://github.com/pelumiolawole/onegoalclaude
+36ae27a | 2026-03-17 | fix: unblock goal-setup for new users, fix error display, tighten interview engine
+4c528aa | 2026-03-17 | Update page.tsx
+318d2ca | 2026-03-17 | sentry ref rmvd
+f9879f1 | 2026-03-17 | fix: interview page
+7c878f3 | 2026-03-17 | fix: interview page
+5c87d0b | 2026-03-17 | update interview page
+028692d | 2026-03-17 | syntax fix
+bd37a9f | 2026-03-17 | Update api.ts
+11de598 | 2026-03-17 | Update page.tsx
+46a1610 | 2026-03-17 | Update interview.py
+ba3a275 | 2026-03-17 | Update system_prompts.py
+5224394 | 2026-03-06 | chore: remove unused Three.js dependencies
+37ac626 | 2026-03-06 | email.py edit
+909785a | 2026-03-06 | fix: complete unterminated f-string in email templates
+42e0576 | 2026-03-06 | endpoint reverted
+7b0d7e1 | 2026-03-06 | fix: OnboardingStatus enum and add bulk welcome email endpoint
+5b83384 | 2026-03-06 | fix: remove signature image, update sign-off to Pelumi (Coach PO) ++ feat: add temporary admin endpoint to send welcome emails to existing users
+17b47dd | 2026-03-06 | fix: correct OnboardingStatus enum value in email verification
+e5f7557 | 2026-03-06 | fix: correct resend-verification folder spelling
+5c2f05d | 2026-03-05 | staticlanding removed
+5198567 | 2026-03-05 | original laging page restored
+e5a775a | 2026-03-05 | WebGL detection added
+4ed2c81 | 2026-03-05 | fix: add proper JSX returns and client-side mount check to prevent hydration errors
+7139051 | 2026-03-05 | fix: use imperative Three.js API to bypass JSX type conflicts
+8dd80a0 | 2026-03-05 | fix: remove unnecessary extend() calls, use built-in R3F v9 JSX types
+6147a43 | 2026-03-05 | fix: use extend() API and inline JSX types for R3F v9 compatibility
+66247bc | 2026-03-05 | fix: update ParticleCanvas for R3F v9 API - use imperative geometry creation
+ec26330 | 2026-03-05 | fix: upgrade @react-three/fiber to v9 for React 19 compatibility
+b639cc4 | 2026-03-05 | fix: lazy load Three.js landing component to avoid JSX type conflicts
+766f2bc | 2026-03-05 | fix: complete Singularity component with proper JSX and Three.js types
+d7eb3ad | 2026-03-05 | fix: remove deprecated swcMinify from next.config.js
+071bff7 | 2026-03-05 | fix: use pure Three.js without React Three Fiber JSX
+f7a4fd4 | 2026-03-05 | fix: use programmatic geometry to avoid JSX type errors
+ff30307 | 2026-03-05 | fix: add React Three Fiber JSX types
+031289e | 2026-03-05 | fix: add TypeScript types for Three.js JSX elements
+b64cf24 | 2026-03-05 | feat: Phase 1 Genesis Loop landing page
+3df5a9f | 2026-03-05 | feat: add continuous guardrail with BackgroundTasks for async task generation
+9d873a8 | 2026-03-05 | feat: add 4am morning sweep job to catch users missing today's task
+ee8e200 | 2026-03-05 | fix: resolve syntax error in task_generator f-string with escaped quotes
+49dd1f8 | 2026-03-05 | fix: wrap resend-verification in Suspense boundary for Next.js 15
+9075772 | 2026-03-05 | feat: redesign task generation with backlog handling and interventions
+07c85a3 | 2026-03-05 | feat: add static files mount for signature image serving
+db487c7 | 2026-03-05 | verifcatio structure update
+2128161 | 2026-03-05 | signature added to /backend/static
+7ef48be | 2026-03-04 | feat: add email verification reminder job, API client methods, and frontend_url config
+3019bcb | 2026-03-04 | fix: password reset implementation - syntax fixes and endpoint additions
+3365033 | 2026-03-04 | fix(upgrade page):  wrapped useSearchParams() in a Suspense boundary
+36279d9 | 2026-03-04 | fix: Changed api.billing.createCheckoutSession to api.billing.createCheckout for upgrade page
+da4a6f1 | 2026-03-04 | fix: restore profile features and fix billing API - merge old settings page with billing, fix billing_cycle attribute error, add upgrade page, fix sign out handler
+2c974a8 | 2026-03-04 | fix: handle undefined plan in getPlanDisplay call
+4f612a8 | 2026-03-04 | fix: add type assertion for subscription API response in settings page
+1b98ff1 | 2026-03-04 | feat: add logout method to auth store with backend api call and local cleanup
+74cd1e2 | 2026-03-04 | fix: add missing closing brace for ApiClient class in api.ts
+62c7465 | 2026-03-04 | fix: move get_invoices method inside BillingService class and fix stripe error reference
+8be4762 | 2026-03-04 | fix: add billing API methods to ApiClient - adds createCheckout, verifySession, getSubscription, cancel/resume subscription, and getInvoices methods to fix TypeError in billing/success page
+0fb0aee | 2026-03-04 | fix: wrap useSearchParams in Suspense boundary for billing success page ++ resolve Next.js 15 metadata warnings by moving themeColor to viewport
+f70cb25 | 2026-03-04 | fix(settings): remove orphaned subscription code causing TS error
+60abcd8 | 2026-03-04 | fix(settings): add TypeScript type for subscription state
+53fa5ec | 2026-03-04 | fix(coach): replace generic prompt with Coach PO personality
+4bb1c8f | 2026-03-04 | fix(auth): rename shadowed status variable in quota check
+8ee76c6 | 2026-03-04 | feat: polished quota warnings + conversational Coach PO personality
+02f26a9 | 2026-03-03 | feat: implement tier-based quota enforcement for AI coach
+e041ede | 2026-03-03 | fix: import get_current_user error
+be0fa3a | 2026-03-03 | fix: billing endpoints re-orientaion
+e1a6983 | 2026-03-03 | config indentation error fixed
+ca617b0 | 2026-03-03 | stripe webhook added
+76149f6 | 2026-03-03 | billing router param fix
+a2ead45 | 2026-03-03 | feat(billing): Add Stripe subscription integration
+7952b1a | 2026-03-03 | feat(gdpr): Add data export and account deletion
+33990c6 | 2026-03-03 | feat(safety): Add admin endpoints for safety flag review
+2e1bd58 | 2026-03-03 | fix: missing run_weekly_review_generation added to scheduler
+5f8608c | 2026-03-03 | fix: indentation error in _load_recent_messages
+e3f2b61 | 2026-03-03 | fix: indentation error
+34f0675 | 2026-03-03 | fix: coach page seed message added and loading
+aaeb1d8 | 2026-03-03 | timezone endpoints added for backend engine and frontend UI
+492f532 | 2026-03-02 | fix: scheduler updated to track user timezoen for task generation differently
+066052c | 2026-03-02 | fix: ai retrieval :embedding error resolved
+06f6fe4 | 2026-03-02 | dt.staus refined
+ac49398 | 2026-03-02 | fix: submit_goal router path updated
+3303380 | 2026-03-02 | api.ts reroute fixed
+dcdac96 | 2026-03-02 | profile router and auto generate bio updated
+1ab302f | 2026-03-02 | avatar path fixed
+1dc0678 | 2026-03-02 | new profile elements
+832586b | 2026-03-02 | updates for prfilr rebrand
+6248db2 | 2026-03-02 | todo updated, settings page upbranded
+91b9e57 | 2026-03-01 | settings page created and layout fixed for auth-state trigger
+cbc3e4b | 2026-03-01 | task generator update
+a11b93b | 2026-03-01 | Merge branch 'main' of https://github.com/pelumiolawole/onegoalclaude
+2adc653 | 2026-03-01 | task generator updated
+7a6d18b | 2026-03-01 | Add renovate.json
+fc1530b | 2026-03-01 | Merge pull request #4 from pelumiolawole/claude/laughing-jackson
+b0dff87 | 2026-03-01 | fix: align backend goal routes with frontend paths
+bc0970c | 2026-03-01 | Merge pull request #3 from pelumiolawole/claude/laughing-jackson
+3a4885d | 2026-03-01 | fix: replace :key_shifts::text[] cast with CAST() to fix asyncpg syntax error
+da7f67f | 2026-03-01 | Merge pull request #2 from pelumiolawole/claude/laughing-jackson
+3991815 | 2026-03-01 | fix: resolve invalid date type error in get_user_retention_context
+0be0988 | 2026-03-01 | update todo for next session
+87e8482 | 2026-03-01 | fix: onboarding router updated
+fc6aa3e | 2026-02-28 | logo size updated
+5069e69 | 2026-02-28 | update logo extension
+8578c3a | 2026-02-28 | logo-png added
+7423c87 | 2026-02-28 | logo SVG integrated
+36a0ccf | 2026-02-28 | Replace landing page redirect with full marketing page
+1c14441 | 2026-02-28 | fix: cleaned up text
+2f1a623 | 2026-02-28 | fix: add/update interactive landing page
+fd1586a | 2026-02-28 | fix: resolved stray comment in app-layout.tsx
+754f050 | 2026-02-28 | fix: homepage reroute resolved'
+15e32fa | 2026-02-28 | fix: added console.log
+d096147 | 2026-02-28 | fix: paths resolved v2
+7e827b9 | 2026-02-28 | fix: path reroute error corrected
+a428ebd | 2026-02-28 | fix: further path resolve for login reroute
+059a440 | 2026-02-28 | merge resolve
+1b0a58c | 2026-02-28 | Merge branch 'main' of https://github.com/pelumiolawole/onegoalclaude
+1ecadc3 | 2026-02-28 | fix: further path correction for login reroute
+1d0f701 | 2026-02-28 | Merge pull request #1 from pelumiolawole/claude/nice-cohen
+0ec9d34 | 2026-02-28 | fix: correct activate redirect path in preview page
+81f75ef | 2026-02-28 | fix: addding todo.md for claude code
+5334fd0 | 2026-02-28 | fix: update paths for goal-setup rerouting
+c83e5ef | 2026-02-28 | fix: corrected goal-setup path for onboarding
+ce3b87a | 2026-02-27 | fix: cast JSONB differently to avoid the conflict
+78fcb7a | 2026-02-27 | fix: replace initial schema migration with new version"
+a14f079 | 2026-02-27 | fix: update router.push for auth;login and signup
+19967a9 | 2026-02-27 | fix: update values_callable for SQLAlchemy
+b520a50 | 2026-02-27 | fix: add hashed_password column to users table in migrations
+2e5679c | 2026-02-26 | fix: upgrade Next.js to 15.2.8 and CORS fix
+232752f | 2026-02-26 | fix: upgrade Next.js to 15.2.6 resolved version for patch CVE-2025-66478
+b679aab | 2026-02-26 | fix: upgrade Next.js to 15.2.2 to patch CVE-2025-66478
+a33562e | 2026-02-26 | fix: rename onboarding/goal to goal-setuo to avoid route conflict
+92b9909 | 2026-02-26 | fix: match eslint-config-next version to 15.1.0
+8e1ede1 | 2026-02-26 | fix: sorted JSON syntax error
+4c88c72 | 2026-02-26 | fix: add .npmrc to fix peer dependency conflict
+f64ba54 | 2026-02-26 | fix: upgrade next version for react compatibility
+0385961 | 2026-02-26 | fix: make Redis and scheduler startup non-fatal
+e60b9b6 | 2026-02-26 | fix: make init_db non-fatal so app starts if DB unreachable at boot
+f3d4ca2 | 2026-02-26 | fix: add greenlet for SQLAlchemy async on Python 3,13
+90339fc | 2026-02-26 | fix: suapbase version updated
+4ce446e | 2026-02-22 | fix: use supabase 2.9.1, add email-validator, add project for end of day
+f05a245 | 2026-02-22 | fix: add email-validator dependency
+be5d4bf | 2026-02-22 | fix: sync all backend files with correct versions
+4fe3bda | 2026-02-22 | replace router files with correct versions
+de445a9 | 2026-02-22 | fix: add missing db/models folder
+0ad10da | 2026-02-22 | fix: httpx version conflict
+c279021 | 2026-02-22 | fix: supabase version requirement
+2d036a1 | 2026-02-22 | fix: resolve httpx supabase version conflict
+9245ce3 | 2026-02-22 | fix: downgrade httpx for supabase compatibility
+895f8dc | 2026-02-22 | add Procfile for Railway
+ebe636f | 2026-02-22 | feat: complete frontend
+a3f149d | 2026-02-22 | Onboarding Flow + Goal System API
+de34556 | 2026-02-22 | README File added
+7b647aa | 2026-02-22 | feat: restructure project with proper folder layout
+a874a4e | 2026-02-21 | add all files
+a958aa5 | 2026-02-21 | Update README.md
+923482b | 2026-02-21 | Initial commit

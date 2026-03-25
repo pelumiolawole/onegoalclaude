@@ -1,0 +1,204 @@
+./.claude/worktrees/adoring-leavitt/backend/ai/base.py
+./.claude/worktrees/adoring-leavitt/backend/ai/engines/coach.py
+./.claude/worktrees/adoring-leavitt/backend/ai/engines/goal_decomposer.py
+./.claude/worktrees/adoring-leavitt/backend/ai/engines/interview.py
+./.claude/worktrees/adoring-leavitt/backend/ai/engines/profile_updater.py
+./.claude/worktrees/adoring-leavitt/backend/ai/engines/reflection_analyzer.py
+./.claude/worktrees/adoring-leavitt/backend/ai/engines/task_generator.py
+./.claude/worktrees/adoring-leavitt/backend/ai/memory/context_builder.py
+./.claude/worktrees/adoring-leavitt/backend/ai/memory/retrieval.py
+./.claude/worktrees/adoring-leavitt/backend/ai/prompts/system_prompts.py
+./.claude/worktrees/adoring-leavitt/backend/ai/utils/cost_tracker.py
+./.claude/worktrees/adoring-leavitt/backend/ai/utils/safety_filter.py
+./.claude/worktrees/adoring-leavitt/backend/api/dependencies/auth.py
+./.claude/worktrees/adoring-leavitt/backend/api/routers/admin.py
+./.claude/worktrees/adoring-leavitt/backend/api/routers/auth.py
+./.claude/worktrees/adoring-leavitt/backend/api/routers/billing.py
+./.claude/worktrees/adoring-leavitt/backend/api/routers/coach.py
+./.claude/worktrees/adoring-leavitt/backend/api/routers/goals.py
+./.claude/worktrees/adoring-leavitt/backend/api/routers/onboarding.py
+./.claude/worktrees/adoring-leavitt/backend/api/routers/profile.py
+./.claude/worktrees/adoring-leavitt/backend/api/routers/progress.py
+./.claude/worktrees/adoring-leavitt/backend/api/routers/reflections.py
+./.claude/worktrees/adoring-leavitt/backend/api/routers/settings.py
+./.claude/worktrees/adoring-leavitt/backend/api/routers/tasks.py
+./.claude/worktrees/adoring-leavitt/backend/api/schemas/auth.py
+./.claude/worktrees/adoring-leavitt/backend/api/schemas/core.py
+./.claude/worktrees/adoring-leavitt/backend/core/cache.py
+./.claude/worktrees/adoring-leavitt/backend/core/config.py
+./.claude/worktrees/adoring-leavitt/backend/core/database.py
+./.claude/worktrees/adoring-leavitt/backend/core/email.py
+./.claude/worktrees/adoring-leavitt/backend/core/middleware.py
+./.claude/worktrees/adoring-leavitt/backend/core/security.py
+./.claude/worktrees/adoring-leavitt/backend/db/models/__init__.py
+./.claude/worktrees/adoring-leavitt/backend/db/models/goal.py
+./.claude/worktrees/adoring-leavitt/backend/db/models/identity_profile.py
+./.claude/worktrees/adoring-leavitt/backend/db/models/task.py
+./.claude/worktrees/adoring-leavitt/backend/db/models/user.py
+./.claude/worktrees/adoring-leavitt/backend/main.py
+./.claude/worktrees/adoring-leavitt/backend/services/analytics.py
+./.claude/worktrees/adoring-leavitt/backend/services/billing.py
+./.claude/worktrees/adoring-leavitt/backend/services/data_export.py
+./.claude/worktrees/adoring-leavitt/backend/services/email.py
+./.claude/worktrees/adoring-leavitt/backend/services/scheduler.py
+./.claude/worktrees/adoring-leavitt/backend/services/scoring.py
+./.claude/worktrees/adoring-leavitt/dead code/(landing)/layout.tsx
+./.claude/worktrees/adoring-leavitt/dead code/(landing)/page.tsx
+./.claude/worktrees/adoring-leavitt/dead code/ParticleCanvas.tsx
+./.claude/worktrees/adoring-leavitt/dead code/Singularity.tsx
+./.claude/worktrees/adoring-leavitt/dead code/coach.py
+./.claude/worktrees/adoring-leavitt/dead code/instrumentation-client.ts
+./.claude/worktrees/adoring-leavitt/dead code/instrumentation.ts
+./.claude/worktrees/adoring-leavitt/dead code/old app page.tsx
+./.claude/worktrees/adoring-leavitt/dead code/posthog.ts
+./.claude/worktrees/adoring-leavitt/dead code/router auth - before temp endpoint.py
+./.claude/worktrees/adoring-leavitt/dead code/sentry.client.config.ts
+./.claude/worktrees/adoring-leavitt/dead code/sentry.edge.config.ts
+./.claude/worktrees/adoring-leavitt/dead code/sentry.server.config.ts
+./.claude/worktrees/adoring-leavitt/dead code/types/r3f.d.ts
+./.claude/worktrees/adoring-leavitt/dead code/types/three-fiber.d.ts
+./.claude/worktrees/adoring-leavitt/dead code/webGL page.tsx
+./.claude/worktrees/adoring-leavitt/frontend/instrumentation-client.ts
+./.claude/worktrees/adoring-leavitt/frontend/src/app/(app)/billing/cancel/page.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/app/(app)/billing/success/page.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/app/(app)/coach/page.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/app/(app)/dashboard/page.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/app/(app)/goal/page.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/app/(app)/layout.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/app/(app)/progress/page.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/app/(app)/settings/Upgrade/page.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/app/(app)/settings/page.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/app/(app)/settings/subscription/page.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/app/(auth)/forgot-password/page.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/app/(auth)/login/page.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/app/(auth)/resend-verification/page.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/app/(auth)/reset-password/page.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/app/(auth)/signup/page.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/app/(auth)/verify-email/page.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/app/(onboarding)/activate/page.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/app/(onboarding)/goal-setup/page.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/app/(onboarding)/interview/page.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/app/(onboarding)/layout.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/app/(onboarding)/preview/page.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/app/auth/callback/page.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/app/layout.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/app/page.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/components/OneGoalLogo.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/components/QuotaBanner.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/components/dashboard/ScoreRing.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/components/dashboard/WeekGrid.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/components/landing/fallback/StaticLanding.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/components/landing/shared/ContentOverlay.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/components/landing/shared/ParticleCanvas.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/components/reflection/ReflectionModal.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/components/task/TaskCard.tsx
+./.claude/worktrees/adoring-leavitt/frontend/src/hooks/useReducedMotion.ts
+./.claude/worktrees/adoring-leavitt/frontend/src/hooks/useScrollProgress.ts
+./.claude/worktrees/adoring-leavitt/frontend/src/hooks/useWebGLSupport.ts
+./.claude/worktrees/adoring-leavitt/frontend/src/lib/api.ts
+./.claude/worktrees/adoring-leavitt/frontend/src/lib/landing/constants.ts
+./.claude/worktrees/adoring-leavitt/frontend/src/lib/posthog.ts
+./.claude/worktrees/adoring-leavitt/frontend/src/lib/utils.ts
+./.claude/worktrees/adoring-leavitt/frontend/src/stores/auth.ts
+./backend/ai/base.py
+./backend/ai/engines/coach.py
+./backend/ai/engines/goal_decomposer.py
+./backend/ai/engines/interview.py
+./backend/ai/engines/profile_updater.py
+./backend/ai/engines/reflection_analyzer.py
+./backend/ai/engines/task_generator.py
+./backend/ai/memory/context_builder.py
+./backend/ai/memory/retrieval.py
+./backend/ai/prompts/system_prompts.py
+./backend/ai/utils/cost_tracker.py
+./backend/ai/utils/safety_filter.py
+./backend/api/dependencies/auth.py
+./backend/api/routers/admin.py
+./backend/api/routers/auth.py
+./backend/api/routers/billing.py
+./backend/api/routers/coach.py
+./backend/api/routers/goals.py
+./backend/api/routers/onboarding.py
+./backend/api/routers/profile.py
+./backend/api/routers/progress.py
+./backend/api/routers/reflections.py
+./backend/api/routers/settings.py
+./backend/api/routers/tasks.py
+./backend/api/schemas/auth.py
+./backend/api/schemas/core.py
+./backend/core/cache.py
+./backend/core/config.py
+./backend/core/database.py
+./backend/core/email.py
+./backend/core/middleware.py
+./backend/core/security.py
+./backend/db/models/__init__.py
+./backend/db/models/goal.py
+./backend/db/models/identity_profile.py
+./backend/db/models/task.py
+./backend/db/models/user.py
+./backend/main.py
+./backend/services/analytics.py
+./backend/services/billing.py
+./backend/services/data_export.py
+./backend/services/email.py
+./backend/services/scheduler.py
+./backend/services/scoring.py
+./dead code/(landing)/layout.tsx
+./dead code/(landing)/page.tsx
+./dead code/ParticleCanvas.tsx
+./dead code/Singularity.tsx
+./dead code/coach.py
+./dead code/instrumentation-client.ts
+./dead code/instrumentation.ts
+./dead code/old app page.tsx
+./dead code/posthog.ts
+./dead code/router auth - before temp endpoint.py
+./dead code/sentry.client.config.ts
+./dead code/sentry.edge.config.ts
+./dead code/sentry.server.config.ts
+./dead code/types/r3f.d.ts
+./dead code/types/three-fiber.d.ts
+./dead code/webGL page.tsx
+./frontend/instrumentation-client.ts
+./frontend/src/app/(app)/billing/cancel/page.tsx
+./frontend/src/app/(app)/billing/success/page.tsx
+./frontend/src/app/(app)/coach/page.tsx
+./frontend/src/app/(app)/dashboard/page.tsx
+./frontend/src/app/(app)/goal/page.tsx
+./frontend/src/app/(app)/layout.tsx
+./frontend/src/app/(app)/progress/page.tsx
+./frontend/src/app/(app)/settings/Upgrade/page.tsx
+./frontend/src/app/(app)/settings/page.tsx
+./frontend/src/app/(app)/settings/subscription/page.tsx
+./frontend/src/app/(auth)/forgot-password/page.tsx
+./frontend/src/app/(auth)/login/page.tsx
+./frontend/src/app/(auth)/resend-verification/page.tsx
+./frontend/src/app/(auth)/reset-password/page.tsx
+./frontend/src/app/(auth)/signup/page.tsx
+./frontend/src/app/(auth)/verify-email/page.tsx
+./frontend/src/app/(onboarding)/activate/page.tsx
+./frontend/src/app/(onboarding)/goal-setup/page.tsx
+./frontend/src/app/(onboarding)/interview/page.tsx
+./frontend/src/app/(onboarding)/layout.tsx
+./frontend/src/app/(onboarding)/preview/page.tsx
+./frontend/src/app/auth/callback/page.tsx
+./frontend/src/app/layout.tsx
+./frontend/src/app/page.tsx
+./frontend/src/components/OneGoalLogo.tsx
+./frontend/src/components/QuotaBanner.tsx
+./frontend/src/components/dashboard/ScoreRing.tsx
+./frontend/src/components/dashboard/WeekGrid.tsx
+./frontend/src/components/landing/fallback/StaticLanding.tsx
+./frontend/src/components/landing/shared/ContentOverlay.tsx
+./frontend/src/components/landing/shared/ParticleCanvas.tsx
+./frontend/src/components/reflection/ReflectionModal.tsx
+./frontend/src/components/task/TaskCard.tsx
+./frontend/src/hooks/useReducedMotion.ts
+./frontend/src/hooks/useScrollProgress.ts
+./frontend/src/hooks/useWebGLSupport.ts
+./frontend/src/lib/api.ts
+./frontend/src/lib/landing/constants.ts
+./frontend/src/lib/posthog.ts
+./frontend/src/lib/utils.ts
+./frontend/src/stores/auth.ts
