@@ -120,7 +120,8 @@ export default function CoachPage() {
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let fullText = ''
-      let warningProcessed = false
+      // Track whether the current line follows an 'event: system' marker
+      let nextLineIsSystemEvent = false
 
       while (true) {
         const { done, value } = await reader.read()
@@ -130,33 +131,42 @@ export default function CoachPage() {
         const lines = chunk.split('\n')
 
         for (const line of lines) {
-          if (!line.trim()) continue
-          
-          // Handle SSE events (event: system)
-          if (line.startsWith('event: system')) {
-            continue // Next line will be data
+          if (!line.trim()) {
+            nextLineIsSystemEvent = false
+            continue
           }
-          
+
+          // Mark that the next data: line is a system event
+          if (line.startsWith('event: system')) {
+            nextLineIsSystemEvent = true
+            continue
+          }
+
           if (line.startsWith('data: ')) {
-            const data = line.slice(6)
-            
-            // Check for quota warning
-            if (!warningProcessed && data.includes('"type":"quota_banner"')) {
+            const data = line.slice(6).trim()
+
+            if (data === '[DONE]' || data.startsWith('[ERROR]')) {
+              nextLineIsSystemEvent = false
+              break
+            }
+
+            // If flagged as system event OR data looks like JSON, try to parse it
+            if (nextLineIsSystemEvent || data.startsWith('{')) {
               try {
                 const parsed = JSON.parse(data)
                 if (parsed.type === 'quota_banner') {
                   setQuotaWarning(parsed)
-                  warningProcessed = true
+                  nextLineIsSystemEvent = false
                   continue
                 }
               } catch {
-                // Not JSON, treat as regular message
+                // Not valid JSON — fall through to treat as chat text
               }
             }
-            
-            if (data === '[DONE]' || data.startsWith('[ERROR]')) break
-            
-            // Unescape newlines from SSE format
+
+            nextLineIsSystemEvent = false
+
+            // Regular chat text chunk
             fullText += data.replace(/\\n/g, '\n')
             setMessages(prev =>
               prev.map(m => m.id === aiId ? { ...m, content: fullText } : m)
@@ -281,14 +291,14 @@ export default function CoachPage() {
                   <p className={`mt-1 text-sm ${quotaConfig[quotaWarning.level].textColor}`}>
                     {quotaWarning.subtext}
                   </p>
-                  
+
                   {/* Usage bar */}
                   <div className="mt-4 flex items-center gap-3">
                     <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                      <motion.div 
+                      <motion.div
                         initial={{ width: 0 }}
-                        animate={{ 
-                          width: `${(quotaWarning.usage.used / quotaWarning.usage.limit) * 100}%` 
+                        animate={{
+                          width: `${(quotaWarning.usage.used / quotaWarning.usage.limit) * 100}%`
                         }}
                         transition={{ duration: 0.8, delay: 0.2 }}
                         className={`h-full rounded-full ${
@@ -420,4 +430,4 @@ const STARTERS = [
   "I've been struggling to stay consistent this week.",
   "What should I focus on right now?",
   "I'm feeling stuck and not sure why.",
-] 
+]
