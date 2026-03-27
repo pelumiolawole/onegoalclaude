@@ -614,21 +614,9 @@ class CoachEngine(BaseAIEngine):
             },
         )
         msg_id = result.scalar()
-
-        # Counter update is analytics-only — timeout must never poison the transaction
-        try:
-            await db.execute(
-                text("""
-                    UPDATE ai_coach_sessions
-                    SET message_count = message_count + 1, last_message_at = NOW()
-                    WHERE id = :session_id
-                """),
-                {"session_id": session_id},
-            )
-        except Exception as e:
-            logger.warning("session_counter_update_failed", session_id=session_id, error=str(e))
-            await _safe_rollback(db)
-
+        # Counter update removed — ai_coach_sessions.message_count was timing out
+        # (~2 min QueryCanceledError) mid-stream, causing connections to drop.
+        # message_count can be derived from COUNT(ai_coach_messages) if needed.
         return msg_id
 
     async def _update_session_after_message(
