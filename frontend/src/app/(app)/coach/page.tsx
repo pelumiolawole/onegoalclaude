@@ -143,7 +143,8 @@ export default function CoachPage() {
           }
 
           if (line.startsWith('data: ')) {
-            const data = line.slice(6).trim()
+            // FIX: do NOT trim() — spaces at the start of tokens are meaningful
+            const data = line.slice(6)
 
             if (data === '[DONE]' || data.startsWith('[ERROR]')) {
               nextLineIsSystemEvent = false
@@ -151,9 +152,9 @@ export default function CoachPage() {
             }
 
             // If flagged as system event OR data looks like JSON, try to parse it
-            if (nextLineIsSystemEvent || data.startsWith('{')) {
+            if (nextLineIsSystemEvent || data.trimStart().startsWith('{')) {
               try {
-                const parsed = JSON.parse(data)
+                const parsed = JSON.parse(data.trim())
                 if (parsed.type === 'quota_banner') {
                   setQuotaWarning(parsed)
                   nextLineIsSystemEvent = false
@@ -166,7 +167,7 @@ export default function CoachPage() {
 
             nextLineIsSystemEvent = false
 
-            // Regular chat text chunk
+            // Regular chat text — preserve spaces, unescape newlines
             fullText += data.replace(/\\n/g, '\n')
             setMessages(prev =>
               prev.map(m => m.id === aiId ? { ...m, content: fullText } : m)
@@ -211,7 +212,7 @@ export default function CoachPage() {
   const showWarning = quotaWarning && !dismissedWarnings.has(quotaWarning.message)
 
   return (
-    <div className="flex flex-col h-screen max-h-screen pb-16 md:pb-0">
+    <div className="flex flex-col h-screen max-h-screen">
 
       {/* Header */}
       <div className="flex items-center gap-3 px-6 py-4 border-b border-white/5 shrink-0">

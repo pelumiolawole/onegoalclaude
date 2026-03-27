@@ -99,7 +99,7 @@ class Settings(BaseSettings):
 
     # ─── OpenAI ─────────────────────────────────────────────────────────
     openai_api_key: str = Field(..., description="OpenAI API key for GPT-4o")
-    openai_model: str = "gpt-4o"
+    openai_model: str = "gpt-4o-mini"
     openai_embedding_model: str = "text-embedding-3-small"  # cost-efficient
     openai_max_tokens_coach: int = 1000
     openai_max_tokens_analysis: int = 2000
