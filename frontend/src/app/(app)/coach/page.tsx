@@ -237,7 +237,7 @@ export default function CoachPage() {
   const showWarning = quotaWarning && !dismissedWarnings.has(quotaWarning.message)
 
   return (
-    <div className="flex flex-col h-screen max-h-screen">
+    <div className="flex flex-col h-screen max-h-screen pb-16 md:pb-0">
 
       {/* Header */}
       <div className="flex items-center gap-3 px-6 py-4 border-b border-white/5 shrink-0">
