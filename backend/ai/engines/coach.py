@@ -43,6 +43,14 @@ logger = structlog.get_logger()
 CoachingMode = Literal["guide", "support", "challenge", "celebrate", "intervention", "crisis"]
 
 
+async def _safe_rollback(db: AsyncSession) -> None:
+    """Rollback without raising. Call after any caught DB exception to prevent poisoned transactions."""
+    try:
+        await db.rollback()
+    except Exception:
+        pass
+
+
 class CoachEngine(BaseAIEngine):
     """
     Streaming AI coach with full user context, semantic memory, and session architecture.
@@ -59,17 +67,6 @@ class CoachEngine(BaseAIEngine):
         db: AsyncSession,
         is_new_session: bool = False,
     ) -> AsyncGenerator[str, None]:
-        """
-        Stream a coach response to a user message.
-
-        Yields text chunks as they arrive from the OpenAI streaming API.
-        After streaming completes, saves the full exchange to the database
-        and updates session memory (moments, patterns).
-
-        Usage in SSE endpoint:
-            async for chunk in coach.stream_response(...):
-                yield f"data: {chunk}\\n\\n"
-        """
         uid = str(user_id)
         sid = str(session_id)
 
@@ -86,7 +83,6 @@ class CoachEngine(BaseAIEngine):
                 ai_response=safe_response,
                 db=db,
             )
-            # Log crisis moment if severe
             if safety_level == SafetyLevel.CRISIS:
                 await self._log_moment(
                     uid, sid, "crisis_signal", user_message[:500],
@@ -118,7 +114,7 @@ class CoachEngine(BaseAIEngine):
         context = await context_builder.get_context(uid, db)
         context_str = context_builder.format_for_prompt(context)
 
-        # ── Get coaching mode from context (V2: includes crisis detection) ─
+        # ── Get coaching mode from context ─────────────────────────
         coaching_mode = context.get("current_coach_mode", "guide")
 
         # ── Retrieve semantic memories ─────────────────────────────────
@@ -147,13 +143,10 @@ class CoachEngine(BaseAIEngine):
         active_patterns = context.get("active_patterns", [])
         recent_moments = context.get("recent_moments", [])
 
-        # Format last session summary for prompt
         last_session_summary = self._format_last_session_summary(last_session)
-
-        # Format recent behavior pattern
         recent_behavior_pattern = self._format_behavior_pattern(active_patterns, recent_moments)
 
-        # ── Build system prompt with V2 placeholders ─────────────────
+        # ── Build system prompt ─────────────────────────────────────
         system_prompt = get_prompt("coach").format(
             user_name=context.get("display_name", "the user"),
             goal_statement=context.get("goal", {}).get("statement", "not set"),
@@ -216,6 +209,7 @@ class CoachEngine(BaseAIEngine):
             await memory_retrieval.store_message_embedding(user_msg_id, clean_message, db)
         except Exception as e:
             logger.warning("embedding_storage_failed", error=str(e))
+            await _safe_rollback(db)
 
         # ── Extract topics and update session ────────────────────────
         await self._update_session_after_message(uid, sid, clean_message, db)
@@ -230,19 +224,14 @@ class CoachEngine(BaseAIEngine):
         )
 
     # ========================================================================
-    # NEW: Session Architecture Methods (V2)
+    # Session Architecture Methods (V2)
     # ========================================================================
 
     async def start_session(
         self, user_id: UUID | str, db: AsyncSession, opening_context: str = None
     ) -> str:
-        """
-        Start a new coach session with intentional opening.
-        Creates session record in coach_sessions table (V2).
-        """
         uid = str(user_id)
 
-        # Create V2 session record
         result = await db.execute(
             text("""
                 INSERT INTO coach_sessions (
@@ -255,7 +244,6 @@ class CoachEngine(BaseAIEngine):
         )
         session_id = str(result.scalar())
 
-        # Also create legacy session for message continuity
         await db.execute(
             text("""
                 INSERT INTO ai_coach_sessions (id, user_id, coaching_mode, started_at)
@@ -271,9 +259,6 @@ class CoachEngine(BaseAIEngine):
         self, user_id: UUID | str, session_id: UUID | str, closing_insight: str = None,
         next_hook: str = None, db: AsyncSession = None
     ) -> None:
-        """
-        End session with intentional closing and insight capture.
-        """
         uid = str(user_id)
         sid = str(session_id)
 
@@ -297,7 +282,6 @@ class CoachEngine(BaseAIEngine):
             },
         )
 
-        # Update legacy session
         await db.execute(
             text("""
                 UPDATE ai_coach_sessions
@@ -312,64 +296,63 @@ class CoachEngine(BaseAIEngine):
     async def _update_session_opening(
         self, user_id: str, session_id: str, session_continuity: dict, db: AsyncSession
     ) -> None:
-        """Update session with opening context if this is a new session start."""
         opening = session_continuity.get("opening_hook", "")
         if opening:
-            await db.execute(
-                text("""
-                    UPDATE coach_sessions
-                    SET opening_context = COALESCE(opening_context, :opening)
-                    WHERE id = :session_id AND user_id = :user_id
-                """),
-                {"session_id": session_id, "user_id": user_id, "opening": opening},
-            )
+            try:
+                await db.execute(
+                    text("""
+                        UPDATE coach_sessions
+                        SET opening_context = COALESCE(opening_context, :opening)
+                        WHERE id = :session_id AND user_id = :user_id
+                    """),
+                    {"session_id": session_id, "user_id": user_id, "opening": opening},
+                )
+            except Exception as e:
+                logger.warning("session_opening_update_failed", error=str(e))
+                await _safe_rollback(db)
 
     async def _maybe_update_session_closing(
         self, user_id: str, session_id: str, ai_response: str, db: AsyncSession
     ) -> None:
-        """
-        Periodically update closing insight based on AI response.
-        Captures the final exchange essence for next session continuity.
-        """
-        msg_count = await db.execute(
-            text("""
-                SELECT COUNT(*) FROM ai_coach_messages
-                WHERE session_id = :session_id
-            """),
-            {"session_id": session_id},
-        )
-        count = msg_count.scalar() or 0
+        try:
+            msg_count = await db.execute(
+                text("""
+                    SELECT COUNT(*) FROM ai_coach_messages
+                    WHERE session_id = :session_id
+                """),
+                {"session_id": session_id},
+            )
+            count = msg_count.scalar() or 0
 
-        if count % 5 == 0:  # Every 5 messages
-            closing = self._extract_closing_insight(ai_response)
-            if closing:
-                await db.execute(
-                    text("""
-                        UPDATE coach_sessions
-                        SET closing_insight = :closing,
-                            next_session_hook = :hook
-                        WHERE id = :session_id AND user_id = :user_id
-                    """),
-                    {
-                        "session_id": session_id,
-                        "user_id": user_id,
-                        "closing": closing[:200],
-                        "hook": self._extract_follow_up(ai_response),
-                    },
-                )
+            if count % 5 == 0:
+                closing = self._extract_closing_insight(ai_response)
+                if closing:
+                    await db.execute(
+                        text("""
+                            UPDATE coach_sessions
+                            SET closing_insight = :closing,
+                                next_session_hook = :hook
+                            WHERE id = :session_id AND user_id = :user_id
+                        """),
+                        {
+                            "session_id": session_id,
+                            "user_id": user_id,
+                            "closing": closing[:200],
+                            "hook": self._extract_follow_up(ai_response),
+                        },
+                    )
+        except Exception as e:
+            logger.warning("session_closing_update_failed", error=str(e))
+            await _safe_rollback(db)
 
     # ========================================================================
-    # NEW: Moment and Pattern Tracking (V2)
+    # Moment and Pattern Tracking (V2)
     # ========================================================================
 
     async def _log_moment(
         self, user_id: str, session_id: str, moment_type: str,
         content: str, coach_observation: str = None, db: AsyncSession = None
     ) -> None:
-        """
-        Log a significant moment (breakthrough, resistance, commitment, etc.)
-        to coach_moments table for pattern recognition.
-        """
         try:
             user_language = content[:150] if len(content) > 50 else content
 
@@ -399,12 +382,12 @@ class CoachEngine(BaseAIEngine):
             logger.debug("moment_logged", user_id=user_id, type=moment_type)
         except Exception as e:
             logger.warning("moment_log_failed", error=str(e))
+            # Must rollback after any failed DB op — otherwise PostgreSQL
+            # marks the whole transaction as aborted and all subsequent
+            # queries in the same connection will fail with InFailedSQLTransactionError
+            await _safe_rollback(db)
 
     def _detect_moment_type(self, message: str, full_response: str, context: dict) -> str | None:
-        """
-        Detect if user message represents a significant moment.
-        Returns moment_type or None.
-        """
         msg_lower = message.lower()
 
         breakthrough_words = ["realized", "finally", "click", "shift", "different", "see it now"]
@@ -426,7 +409,6 @@ class CoachEngine(BaseAIEngine):
         return None
 
     def _detect_response_moment(self, response: str) -> str | None:
-        """Detect if coach response contains a significant moment."""
         if "resistance" in response.lower() or "avoiding" in response.lower():
             return "resistance_named"
         if "breakthrough" in response.lower() or "shift" in response.lower():
@@ -434,11 +416,10 @@ class CoachEngine(BaseAIEngine):
         return None
 
     # ========================================================================
-    # Formatting Helpers for V2 Prompt
+    # Formatting Helpers
     # ========================================================================
 
     def _format_last_session_summary(self, last_session: dict | None) -> str:
-        """Format last session data for COACH_SYSTEM_V2 {last_session_summary} placeholder."""
         if not last_session:
             return "First session with this user."
 
@@ -462,7 +443,6 @@ class CoachEngine(BaseAIEngine):
         return " | ".join(parts) if parts else "Recent session, details not recorded."
 
     def _format_behavior_pattern(self, active_patterns: list, recent_moments: list) -> str:
-        """Format patterns for COACH_SYSTEM_V2 {recent_behavior_pattern} placeholder."""
         if not active_patterns and not recent_moments:
             return "Still learning this person's patterns."
 
@@ -480,13 +460,11 @@ class CoachEngine(BaseAIEngine):
         return " | ".join(parts) if parts else "Patterns emerging."
 
     def _extract_closing_insight(self, response: str) -> str:
-        """Extract key insight or question from coach response for session closing."""
         sentences = response.split(". ")
         candidates = [s for s in sentences[-2:] if "?" in s or len(s) > 20]
         return candidates[-1] if candidates else response[-150:]
 
     def _extract_follow_up(self, response: str) -> str:
-        """Extract follow-up item from coach response."""
         if "next time" in response.lower():
             idx = response.lower().find("next time")
             return response[idx:idx+100]
@@ -497,20 +475,17 @@ class CoachEngine(BaseAIEngine):
         return ""
 
     # ========================================================================
-    # Legacy Methods (Updated for V2 Compatibility)
+    # Legacy Methods
     # ========================================================================
 
     async def create_session(self, user_id: UUID | str, db: AsyncSession) -> str:
-        """Legacy method - delegates to V2 start_session."""
         return await self.start_session(user_id, db)
 
     async def get_or_create_active_session(
         self, user_id: UUID | str, db: AsyncSession
     ) -> str:
-        """Get the most recent active session or create a new one."""
         uid = str(user_id)
 
-        # Check V2 sessions first
         result = await db.execute(
             text("""
                 SELECT id FROM coach_sessions
@@ -524,7 +499,6 @@ class CoachEngine(BaseAIEngine):
         if row:
             return str(row[0])
 
-        # Check legacy sessions
         result = await db.execute(
             text("""
                 SELECT id FROM ai_coach_sessions
@@ -538,14 +512,9 @@ class CoachEngine(BaseAIEngine):
         if row:
             return str(row[0])
 
-        # Create new
         return await self.start_session(uid, db)
 
     def _determine_coaching_mode(self, context: dict, message: str) -> CoachingMode:
-        """
-        Legacy mode detection - now primarily uses context from ContextBuilder.
-        Kept for fallback and message-specific signals.
-        """
         ctx_mode = context.get("current_coach_mode")
         if ctx_mode:
             return ctx_mode
@@ -567,7 +536,6 @@ class CoachEngine(BaseAIEngine):
         return "guide"
 
     async def _get_daily_context(self, user_id: str, db: AsyncSession) -> str:
-        """Get today's task and reflection status for the coach."""
         result = await db.execute(
             text("""
                 SELECT
@@ -599,7 +567,6 @@ class CoachEngine(BaseAIEngine):
     async def _load_recent_messages(
         self, session_id: str, db: AsyncSession, limit: int = 10
     ) -> list[dict]:
-        """Load recent messages in a session for conversation context."""
         count_result = await db.execute(
             text("""
                 SELECT COUNT(*) FROM ai_coach_messages
@@ -648,8 +615,7 @@ class CoachEngine(BaseAIEngine):
         )
         msg_id = result.scalar()
 
-        # FIX: Wrap counter update in try/except — this is analytics-only.
-        # A Supabase statement timeout here must never surface as a user-facing error.
+        # Counter update is analytics-only — timeout must never poison the transaction
         try:
             await db.execute(
                 text("""
@@ -661,19 +627,19 @@ class CoachEngine(BaseAIEngine):
             )
         except Exception as e:
             logger.warning("session_counter_update_failed", session_id=session_id, error=str(e))
+            await _safe_rollback(db)
 
         return msg_id
 
     async def _update_session_after_message(
         self, user_id: str, session_id: str, user_message: str, db: AsyncSession
     ) -> None:
-        """Extract key topics from the message and update session."""
         try:
             topic_keywords = [
                 "goal", "motivation", "habit", "fear", "failure", "success",
                 "discipline", "focus", "energy", "stress", "confidence",
                 "morning", "evening", "work", "family", "health", "money",
-                "forge", "field", "harbor", "war room",  # PMOS domains
+                "forge", "field", "harbor", "war room",
             ]
             found_topics = [kw for kw in topic_keywords if kw in user_message.lower()]
 
@@ -691,5 +657,6 @@ class CoachEngine(BaseAIEngine):
                     """),
                     {"session_id": session_id, "topics": found_topics},
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("topic_update_failed", error=str(e))
+            await _safe_rollback(db)
