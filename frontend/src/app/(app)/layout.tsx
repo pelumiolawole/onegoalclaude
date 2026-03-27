@@ -53,8 +53,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-[#0A0908] flex">
 
-      {/* Sidebar (desktop) */}
-      <aside className="hidden md:flex flex-col w-60 border-r border-white/5 p-5 shrink-0">
+      {/* Sidebar (desktop) — sticky to viewport height */}
+      <aside className="hidden md:flex flex-col w-60 border-r border-white/5 p-5 shrink-0 sticky top-0 h-screen">
 
         {/* Logo + avatar row */}
         <div className="flex items-center justify-between mb-10 px-2">
@@ -111,9 +111,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         )}
       </aside>
 
-      {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <main className="flex-1 overflow-y-auto">
+      {/* Main — mobile needs padding at bottom so content clears the fixed nav */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+        <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
           <motion.div
             key={pathname}
             initial={{ opacity: 0, y: 8 }}
@@ -125,8 +125,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </motion.div>
         </main>
 
-        {/* Mobile bottom nav */}
-        <nav className="md:hidden border-t border-white/5 px-2 py-2 flex justify-around bg-[#0A0908]">
+        {/* Mobile bottom nav — fixed to bottom of viewport */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t border-white/5 px-2 py-2 flex justify-around bg-[#0A0908] z-50">
           {NAV.map(item => {
             const active = pathname === item.href
 
