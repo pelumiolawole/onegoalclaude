@@ -263,7 +263,8 @@ async def require_admin(
     Dependency to require admin access.
     """
     ADMIN_EMAILS = [
-        "coach@pelumiolawole.com",
+        "hello@onegoalpro.app",
+        "olawolepelumisunday@gmail.com",
     ]
 
     if current_user.email not in ADMIN_EMAILS:

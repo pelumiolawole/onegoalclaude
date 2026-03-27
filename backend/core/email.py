@@ -14,8 +14,8 @@ logger = structlog.get_logger()
 
 # Configuration from environment
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
-FROM_EMAIL = os.getenv("FROM_EMAIL", "coach@pelumiolawole.com")
-ALERT_RECIPIENT = os.getenv("ALERT_EMAIL", "coach@pelumiolawole.com")
+FROM_EMAIL = os.getenv("FROM_EMAIL", "hello@onegoalpro.app")
+ALERT_RECIPIENT = os.getenv("ALERT_EMAIL", "hello@onegoalpro.app")
 RESEND_API_URL = "https://api.resend.com/emails"
 
 
@@ -28,7 +28,7 @@ async def send_safety_alert(
 ) -> bool:
     """
     Send immediate email alert when user safety is flagged.
-    
+
     Args:
         user_id: UUID of the user who triggered the flag
         flag_type: Type of flag (crisis, distress, etc.)
@@ -42,11 +42,10 @@ async def send_safety_alert(
 
     try:
         from datetime import datetime
-        
+
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M UTC')
         severity_emoji = "🚨" if severity >= 8 else "⚠️"
-        
-        # Plain text version
+
         text_body = f"""
 SAFETY ALERT - OneGoal Pro
 
@@ -70,7 +69,6 @@ ACTION REQUIRED:
 This is an automated alert from OneGoal Pro.
         """
 
-        # HTML version
         html_body = f"""
         <!DOCTYPE html>
         <html>
@@ -84,8 +82,7 @@ This is an automated alert from OneGoal Pro.
                 <tr>
                     <td align="center" style="padding: 40px 20px;">
                         <table width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                            
-                            <!-- Header -->
+
                             <tr>
                                 <td style="background-color: #dc2626; padding: 24px; text-align: center;">
                                     <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">
@@ -96,8 +93,7 @@ This is an automated alert from OneGoal Pro.
                                     </p>
                                 </td>
                             </tr>
-                            
-                            <!-- Meta Info -->
+
                             <tr>
                                 <td style="padding: 24px; background-color: #f9fafb; border-bottom: 1px solid #e5e7eb;">
                                     <table width="100%" cellpadding="0" cellspacing="0">
@@ -114,8 +110,7 @@ This is an automated alert from OneGoal Pro.
                                     </table>
                                 </td>
                             </tr>
-                            
-                            <!-- User Message -->
+
                             <tr>
                                 <td style="padding: 24px;">
                                     <h3 style="margin: 0 0 12px 0; color: #374151; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">
@@ -126,8 +121,7 @@ This is an automated alert from OneGoal Pro.
                                     </div>
                                 </td>
                             </tr>
-                            
-                            <!-- AI Response -->
+
                             <tr>
                                 <td style="padding: 0 24px 24px 24px;">
                                     <h3 style="margin: 0 0 12px 0; color: #374151; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">
@@ -138,8 +132,7 @@ This is an automated alert from OneGoal Pro.
                                     </div>
                                 </td>
                             </tr>
-                            
-                            <!-- Action Required -->
+
                             <tr>
                                 <td style="padding: 0 24px 24px 24px;">
                                     <div style="background-color: #fee2e2; border-radius: 8px; padding: 20px;">
@@ -154,8 +147,7 @@ This is an automated alert from OneGoal Pro.
                                     </div>
                                 </td>
                             </tr>
-                            
-                            <!-- Footer -->
+
                             <tr>
                                 <td style="padding: 24px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
                                     <p style="margin: 0; color: #9ca3af; font-size: 12px;">
@@ -164,7 +156,7 @@ This is an automated alert from OneGoal Pro.
                                     </p>
                                 </td>
                             </tr>
-                            
+
                         </table>
                     </td>
                 </tr>
@@ -173,7 +165,6 @@ This is an automated alert from OneGoal Pro.
         </html>
         """
 
-        # Send via Resend API
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 RESEND_API_URL,
@@ -190,7 +181,7 @@ This is an automated alert from OneGoal Pro.
                 },
                 timeout=30.0,
             )
-            
+
             if response.status_code == 200:
                 result = response.json()
                 logger.info(
@@ -236,7 +227,7 @@ async def send_test_email(to_email: str) -> bool:
                 },
                 timeout=30.0,
             )
-            
+
             return response.status_code == 200
 
     except Exception as e:

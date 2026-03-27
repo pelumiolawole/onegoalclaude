@@ -135,13 +135,12 @@ class Settings(BaseSettings):
         default="",
         description="Resend API key for transactional emails",
     )
-    # Use placeholder until domain is purchased
     email_from_address: str = Field(
-        default="One Goal Pro <coach@pelumiolawole.com>",
+        default="One Goal Pro <hello@onegoalpro.app>",
         description="From address for transactional emails",
     )
     email_from_name: str = "One Goal Pro"
-    
+
     # Password reset settings
     password_reset_token_expire_hours: int = 24
 
@@ -155,7 +154,6 @@ class Settings(BaseSettings):
     @classmethod
     def validate_prod_settings(cls, v: str, info) -> str:
         """In production, enforce stricter settings."""
-        # This runs after the model is fully populated via model_validator
         return v
 
     @property

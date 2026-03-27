@@ -412,9 +412,8 @@ class EmailService:
                                         <td style="padding: 20px 40px; border-top: 1px solid #2A2520;">
                                             <p style="margin: 0; font-size: 12px; color: #3D3630;">
                                                 Connect:
-                                                <a href="https://www.linkedin.com/in/pelumiolawole/" style="color: #5C524A; text-decoration: none;">LinkedIn</a> ·
-                                                <a href="https://instagram.com/peluolawole" style="color: #5C524A; text-decoration: none;">Instagram</a> ·
-                                                <a href="https://x.com/peluolawole" style="color: #5C524A; text-decoration: none;">X</a>
+                                                <a href="https://onegoalpro.app" style="color: #5C524A; text-decoration: none;">onegoalpro.app</a> ·
+                                                <a href="mailto:hello@onegoalpro.app" style="color: #5C524A; text-decoration: none;">hello@onegoalpro.app</a>
                                             </p>
                                         </td>
                                     </tr>
