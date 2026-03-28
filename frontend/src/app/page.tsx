@@ -426,7 +426,7 @@ export default function LandingPage() {
             </p>
             <p className="text-[#5C524A] leading-relaxed mb-6">
               There is a difference between knowing and doing. Most apps never go near it.
-              This one starts there.
+              This one starts there.  The interview takes 10-15 minutes. You only do it once.
             </p>
             <Link
               href="/signup"
