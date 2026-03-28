@@ -237,24 +237,3 @@ async def get_unreviewed_count(
     )
     
     return {"unreviewed_count": result.scalar() or 0}
-
-# ─── Temporary Test Endpoint — DELETE AFTER TESTING ──────────────────────────
-
-@router.post(
-    "/test-nudge-email",
-    summary="[TEMP] Fire a nudge email directly to any address",
-)
-async def test_nudge_email(
-    email: str,
-    first_name: str,
-    attempt: int = 1,
-    current_user: User = Depends(get_current_user),
-) -> dict:
-    """Temporary test endpoint. Remove after confirming nudge emails work."""
-    from services.email import send_interview_nudge_email
-    await send_interview_nudge_email(
-        to_email=email,
-        first_name=first_name,
-        attempt=attempt,
-    )
-    return {"status": "sent", "to": email, "attempt": attempt}
