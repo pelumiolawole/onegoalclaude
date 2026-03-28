@@ -592,3 +592,88 @@ class EmailService:
 
 # Singleton instance
 email_service = EmailService()
+
+
+async def send_interview_nudge_email(
+    to_email: str,
+    first_name: str,
+    attempt: int,
+) -> None:
+    """Send interview completion nudge email. Attempt 1 = 24h, attempt 2 = 72h."""
+    resend.api_key = settings.resend_api_key
+
+    if attempt == 1:
+        subject = "You started something. Don't leave it there."
+        body_html = f"""
+        <div style="font-family: Georgia, serif; max-width: 560px; margin: 0 auto; color: #1a1714; line-height: 1.7;">
+          <p style="margin-bottom: 20px;">Hey {first_name},</p>
+
+          <p>You signed up for OneGoal Pro yesterday.</p>
+
+          <p>That tells me something. You're thinking about a goal. Something you want to change, build, or become. You haven't stopped thinking about it, which is exactly why you clicked.</p>
+
+          <p>But you didn't finish the interview.</p>
+
+          <p>I get it. Life moves fast. Maybe it felt like a lot. Maybe you weren't sure what to expect.</p>
+
+          <p>Here's what the interview actually is: a conversation. Not a form. The AI asks real questions, pushes back when answers are vague, and by the end it hands you one goal. The real one. Not the one you default to when someone asks.</p>
+
+          <p>It takes 10 to 15 minutes. You do it once. Everything after that is one task a day.</p>
+
+          <p>That's the whole thing.</p>
+
+          <p style="margin: 32px 0;">
+            <a href="https://onegoalpro.app/onboarding/interview"
+               style="background: #F59E0B; color: #0A0908; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-family: sans-serif; font-weight: 600; font-size: 15px;">
+              Start your interview →
+            </a>
+          </p>
+
+          <p>Pelumi<br>
+          <span style="color: #7A6E65; font-size: 14px;">Founder, OneGoal Pro</span></p>
+
+          <p style="color: #7A6E65; font-size: 14px; border-top: 1px solid #eee; padding-top: 16px; margin-top: 32px;">
+            P.S. If you have questions before you start, just reply. I read every one.
+          </p>
+        </div>
+        """
+    else:
+        subject = "Still here when you're ready."
+        body_html = f"""
+        <div style="font-family: Georgia, serif; max-width: 560px; margin: 0 auto; color: #1a1714; line-height: 1.7;">
+          <p style="margin-bottom: 20px;">Hey {first_name},</p>
+
+          <p>Three days ago you signed up. The interview is still waiting.</p>
+
+          <p>I'm not going to pressure you. But I'll say this.</p>
+
+          <p>Every person who has gone through the interview says some version of the same thing: <em>"I didn't expect it to ask me that."</em> It goes somewhere most apps don't bother going.</p>
+
+          <p>The question it's trying to answer isn't what do you want to achieve. It's who do you need to become to achieve it. Most people have never been asked that second question properly.</p>
+
+          <p>If now's not the right time, I understand. But if you signed up because something needs to change, the interview is where that starts.</p>
+
+          <p>10 to 15 minutes. One conversation. One goal on the other side.</p>
+
+          <p style="margin: 32px 0;">
+            <a href="https://onegoalpro.app/onboarding/interview"
+               style="background: #F59E0B; color: #0A0908; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-family: sans-serif; font-weight: 600; font-size: 15px;">
+              Start your interview →
+            </a>
+          </p>
+
+          <p>Pelumi<br>
+          <span style="color: #7A6E65; font-size: 14px;">Founder, OneGoal Pro</span></p>
+
+          <p style="color: #7A6E65; font-size: 14px; border-top: 1px solid #eee; padding-top: 16px; margin-top: 32px;">
+            P.S. After this I won't keep nudging you. But I'm here if you want to talk first. Just reply.
+          </p>
+        </div>
+        """
+
+    resend.Emails.send({
+        "from": "Pelumi at OneGoal Pro <pelumi@onegoalpro.app>",
+        "to": to_email,
+        "subject": subject,
+        "html": body_html,
+    })

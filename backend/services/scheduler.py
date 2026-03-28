@@ -5,6 +5,7 @@ Background job scheduler using APScheduler.
 Runs nightly AI jobs that power the adaptive system.
 """
 
+import asyncio
 import structlog
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -117,6 +118,26 @@ async def start_scheduler() -> AsyncIOScheduler:
         trigger=CronTrigger(hour=8, minute=0),
         id="daily_push_notifications",
         name="Send daily push notifications",
+        replace_existing=True,
+        max_instances=1,
+        misfire_grace_time=3600,
+    )
+
+    scheduler.add_job(
+        lambda: asyncio.create_task(run_interview_nudge(hours_since_signup=24)),
+        CronTrigger(hour="*", minute=0),
+        id="interview_nudge_24h",
+        name="Interview nudge - 24h",
+        replace_existing=True,
+        max_instances=1,
+        misfire_grace_time=3600,
+    )
+
+    scheduler.add_job(
+        lambda: asyncio.create_task(run_interview_nudge(hours_since_signup=72)),
+        CronTrigger(hour="*", minute=0),
+        id="interview_nudge_72h",
+        name="Interview nudge - 72h",
         replace_existing=True,
         max_instances=1,
         misfire_grace_time=3600,
@@ -771,3 +792,83 @@ async def run_daily_push_notifications() -> None:
 
     finally:
         await release_lock("daily_push_notifications")
+
+
+async def run_interview_nudge(hours_since_signup: int) -> None:
+    """
+    Send interview completion nudge to users who signed up
+    but have not completed the interview.
+    hours_since_signup: 24 for attempt 1, 72 for attempt 2
+    """
+    from core.database import get_db_context
+    from services.email import send_interview_nudge_email
+    from services.push import send_push_notification
+
+    window_start = hours_since_signup - 1  # 1-hour window to catch the cohort
+    window_end = hours_since_signup
+
+    try:
+        async with get_db_context() as db:
+            from sqlalchemy import text
+
+            result = await db.execute(
+                text(f"""
+                    SELECT
+                        u.id,
+                        u.email,
+                        u.display_name,
+                        ps.endpoint,
+                        ps.p256dh,
+                        ps.auth
+                    FROM users u
+                    LEFT JOIN goals g ON g.user_id = u.id
+                    LEFT JOIN push_subscriptions ps ON ps.user_id = u.id
+                    WHERE u.is_active = TRUE
+                      AND g.id IS NULL
+                      AND u.created_at >= NOW() - INTERVAL '{window_end} hours'
+                      AND u.created_at < NOW() - INTERVAL '{window_start} hours'
+                """)
+            )
+            users = result.fetchall()
+    except Exception as e:
+        logger.error("interview_nudge_query_failed", error=str(e), hours=hours_since_signup)
+        return
+
+    attempt = 1 if hours_since_signup == 24 else 2
+    logger.info("interview_nudge_starting", attempt=attempt, user_count=len(users))
+
+    for user in users:
+        first_name = (user.display_name or user.email).split()[0].capitalize()
+
+        # Email
+        try:
+            await send_interview_nudge_email(
+                to_email=user.email,
+                first_name=first_name,
+                attempt=attempt,
+            )
+            logger.info("interview_nudge_email_sent", user_id=str(user.id), attempt=attempt)
+        except Exception as e:
+            logger.warning("interview_nudge_email_failed", user_id=str(user.id), error=str(e))
+
+        # Push (only if subscription exists)
+        if user.endpoint and user.p256dh and user.auth:
+            if attempt == 1:
+                title = "Your interview is waiting"
+                body = "You signed up but didn't finish. 10–15 min. One goal on the other side."
+            else:
+                title = "Still here when you're ready."
+                body = "The question isn't what you want. It's who you need to become."
+
+            try:
+                send_push_notification(
+                    endpoint=user.endpoint,
+                    p256dh=user.p256dh,
+                    auth=user.auth,
+                    title=title,
+                    body=body,
+                    url="/onboarding/interview",
+                )
+                logger.info("interview_nudge_push_sent", user_id=str(user.id), attempt=attempt)
+            except Exception as e:
+                logger.warning("interview_nudge_push_failed", user_id=str(user.id), error=str(e))
