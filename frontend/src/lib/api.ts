@@ -114,6 +114,7 @@ class ApiClient {
     path: string,
     options: RequestInit = {},
     requiresAuth = true,
+    timeoutMs = 30000,
   ): Promise<T> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -125,10 +126,14 @@ class ApiClient {
       if (token) headers['Authorization'] = `Bearer ${token}`
     }
 
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
     const res = await fetch(`${BASE_URL}${path}`, {
       ...options,
       headers,
-    })
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeoutId))
 
     if (!res.ok) {
       let errorData: any = {}

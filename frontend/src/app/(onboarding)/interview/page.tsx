@@ -80,8 +80,14 @@ export default function InterviewPage() {
         await refreshUser()
         setTimeout(() => router.push('/goal-setup'), 1200)
       }
-    } catch (err) {
-      setMessages([...newMessages, { role: 'assistant', content: "Something went wrong on my end. Try sending that again." }])
+    } catch (err: any) {
+      const isTimeout = err?.name === 'AbortError'
+      setMessages([...newMessages, {
+        role: 'assistant',
+        content: isTimeout
+          ? "That took a little longer than usual. If your message didn't go through, try sending it again."
+          : "Something went wrong. Try sending that again."
+      }])
     } finally {
       setLoading(false)
     }
