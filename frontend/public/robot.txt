@@ -1,0 +1,3 @@
+# User-agent: *
+# Allow: /
+# Sitemap: https://onegoalpro.app/sitemap.xml

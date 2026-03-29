@@ -65,7 +65,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         const sub = subscription.toJSON()
 
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/push/subscribe`, {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/push/subscribe`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
