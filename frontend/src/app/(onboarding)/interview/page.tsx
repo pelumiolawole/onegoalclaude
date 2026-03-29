@@ -116,7 +116,10 @@ export default function InterviewPage() {
           <p className="text-[#A09690] text-lg leading-relaxed mb-4">
             Before we build your strategy, we need to understand what you actually want — not the goal you think you should have, but the real one.
           </p>
-          <p className="text-[#7A6E65] mb-10">This is a conversation. Answer honestly. Take your time.</p>
+          <p className="text-[#7A6E65] mb-6">This is a conversation. Answer honestly. Take your time.</p>
+          <p className="text-[#3D3630] text-xs mb-10">
+            Coach PO is an AI, not a human coach. Your responses are processed by AI to build your goal profile.
+          </p>
           <button onClick={startInterview} className="btn btn-primary px-10 h-13 text-base">
             Begin the interview
           </button>

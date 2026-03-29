@@ -247,6 +247,7 @@ export default function CoachPage() {
         <div>
           <p className="text-[#E8E2DC] text-sm font-medium">Your Coach</p>
           <p className="text-[#3D3630] text-xs">Knows your goal, your history, and where you are</p>
+          <p className="text-[#2A2520] text-[10px] mt-0.5">AI coach — not a human</p>
         </div>
       </div>
 

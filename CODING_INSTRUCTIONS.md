@@ -81,6 +81,42 @@ const data = line.slice(6).trim()
 The bottom nav must be `fixed bottom-0 left-0 right-0 z-50`.
 The main content wrapper must have `pb-16 md:pb-0`.
 
+### frontend/src/app/(app)/goal/page.tsx
+
+**Fix: Mobile nav clearance**
+Outermost div must include `pb-24 md:pb-8`.
+
+```tsx
+// CORRECT
+className="p-6 md:p-8 pb-24 md:pb-8 max-w-3xl mx-auto space-y-5"
+// WRONG
+className="p-6 md:p-8 max-w-3xl mx-auto space-y-5"
+```
+
+### frontend/src/app/(app)/progress/page.tsx
+
+**Fix: Mobile nav clearance**
+Outermost div must include `pb-24 md:pb-8`.
+
+```tsx
+// CORRECT
+className="p-6 md:p-8 pb-24 md:pb-8 max-w-3xl mx-auto space-y-6"
+// WRONG
+className="p-6 md:p-8 max-w-3xl mx-auto space-y-6"
+```
+
+### frontend/src/app/(app)/settings/page.tsx
+
+**Fix: Mobile nav clearance**
+Inner content wrapper must include `pb-24 md:pb-8`.
+
+```tsx
+// CORRECT
+className="max-w-4xl mx-auto px-6 py-12 pb-24 md:pb-8"
+// WRONG
+className="max-w-4xl mx-auto px-6 py-12"
+```
+
 ### backend/ai/engines/coach.py
 
 **Fix: No session counter update in _save_message**
@@ -171,3 +207,44 @@ At the start of every session where code will be changed:
 
 When adding a new permanent fix during a session, add it to this file
 in the same commit.
+
+---
+
+## KNOWN BEHAVIOUR — NOT BUGS
+
+### Interview phase showing `intro` in database
+All users show `current_phase = 'intro'` in `onboarding_interview_state`. This is
+the DB default from account creation. The engine falls back to `tension` (index 0)
+when it sees an unknown phase, so the interview runs correctly. Cosmetic only.
+
+Fix for new users: seed `onboarding_interview_state` with `current_phase = 'tension'`
+not `intro` when the row is first created.
+
+### Interview 400 responses for completed users
+Users whose interview is `is_complete = TRUE` receive a `400 Bad Request` if they
+send another message. This is correct backend behaviour. The frontend now catches
+`err.status === 400` and redirects to `/dashboard` instead of showing an error.
+
+### Push subscribe was hitting `/api/api/push/subscribe`
+Fixed March 29, 2026. `NEXT_PUBLIC_API_URL` already includes `/api` — the subscribe
+call must use `/push/subscribe` not `/api/push/subscribe`.
+
+### APScheduler interview nudge jobs `RuntimeError: no running event loop`
+Fixed March 29, 2026. Jobs were registered with `lambda: asyncio.create_task()`
+which requires a running event loop. Replaced with `func=lambda:` passing the
+coroutine directly — `AsyncIOScheduler` handles the async call itself.
+
+### Scheduler job registration pattern
+All scheduler jobs must use `func=` with an `async def` function or a lambda
+returning a coroutine. Never use `asyncio.create_task()` inside a lambda passed
+to `scheduler.add_job()` — APScheduler runs jobs in a thread pool where no event
+loop is running.
+
+```python
+# CORRECT
+scheduler.add_job(func=run_my_job, trigger=CronTrigger(...))
+scheduler.add_job(func=lambda: run_my_job(param=value), trigger=CronTrigger(...))
+
+# WRONG — RuntimeError: no running event loop
+scheduler.add_job(lambda: asyncio.create_task(run_my_job()), CronTrigger(...))
+```

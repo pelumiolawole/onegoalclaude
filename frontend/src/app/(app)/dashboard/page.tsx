@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import ReflectionModal from '@/components/reflection/ReflectionModal'
+import InstallBanner from '@/components/InstallBanner'
 import TaskCard from '@/components/task/TaskCard'
 import ScoreRing from '@/components/dashboard/ScoreRing'
 import WeekGrid from '@/components/dashboard/WeekGrid'
@@ -56,6 +57,8 @@ export default function DashboardPage() {
 
   return (
     <div className="p-6 md:p-8 pb-24 md:pb-8 max-w-3xl mx-auto">
+
+      <InstallBanner />
 
       {/* Header */}
       <motion.div
