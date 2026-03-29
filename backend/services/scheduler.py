@@ -124,24 +124,24 @@ async def start_scheduler() -> AsyncIOScheduler:
     )
 
     scheduler.add_job(
-        lambda: asyncio.create_task(run_interview_nudge(hours_since_signup=24)),
-        CronTrigger(hour="*", minute=0),
+        func=lambda: run_interview_nudge(hours_since_signup=24),
+        trigger=CronTrigger(hour="*", minute=0),
         id="interview_nudge_24h",
         name="Interview nudge - 24h",
         replace_existing=True,
         max_instances=1,
         misfire_grace_time=3600,
-    )
+)
 
     scheduler.add_job(
-        lambda: asyncio.create_task(run_interview_nudge(hours_since_signup=72)),
-        CronTrigger(hour="*", minute=0),
+        func=lambda: run_interview_nudge(hours_since_signup=72),
+        trigger=CronTrigger(hour="*", minute=0),
         id="interview_nudge_72h",
         name="Interview nudge - 72h",
         replace_existing=True,
         max_instances=1,
         misfire_grace_time=3600,
-    )
+)
 
     scheduler.start()
     logger.info("scheduler_started", job_count=len(scheduler.get_jobs()))
