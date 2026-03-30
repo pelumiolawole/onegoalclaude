@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Playfair_Display, DM_Sans, DM_Mono } from 'next/font/google'
 import './globals.css'
 import { initPostHog } from "@/lib/posthog"
+import CookieBanner from '@/components/CookieBanner';
 
 const playfair = Playfair_Display({
   subsets: ['latin'],
@@ -68,6 +69,7 @@ export default function RootLayout({
     >
       <body className="antialiased overflow-x-hidden">
         {children}
+        <CookieBanner />
       </body>
     </html>
   )
