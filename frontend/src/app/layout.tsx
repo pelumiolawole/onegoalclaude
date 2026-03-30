@@ -68,7 +68,6 @@ export default function RootLayout({
     >
       <body className="antialiased overflow-x-hidden">
         {children}
-        <CookieBanner />
       </body>
     </html>
   )
