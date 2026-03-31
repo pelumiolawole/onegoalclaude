@@ -217,7 +217,15 @@ export default function SignupPage() {
           <Link href="/login" className="text-[#F59E0B] hover:text-[#FCD34D] transition-colors">Sign in</Link>
         </p>
         <p className="mt-8 text-center text-[#3D3630] text-xs leading-relaxed">
-          By creating an account you agree to our terms. Your data is yours and can be exported or deleted at any time.
+          By creating an account you agree to our{' '}
+          <Link href="/terms" className="underline hover:text-[#7A6E65] transition-colors">
+            Terms of Service
+          </Link>
+          {' '}and{' '}
+          <Link href="/privacy" className="underline hover:text-[#7A6E65] transition-colors">
+            Privacy Policy
+          </Link>
+          . Your data is yours and can be exported or deleted at any time.
         </p>
       </motion.div>
     </div>

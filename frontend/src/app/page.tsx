@@ -724,7 +724,7 @@ export default function LandingPage() {
         </Reveal>
       </section>
 
-      {/* ── Footer — CHANGE 5: updated tagline ───────────── */}
+      {/* ── Footer — updated with Terms link ───────────── */}
       <footer className="px-6 py-10 border-t border-white/5">
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <OneGoalLogo size={22} textSize="text-lg" />
@@ -732,6 +732,8 @@ export default function LandingPage() {
           <div className="flex gap-6 text-xs text-[#3D3630]">
             <Link href="/login" className="hover:text-[#7A6E65] transition-colors">Sign in</Link>
             <Link href="/signup" className="hover:text-[#7A6E65] transition-colors">Start the interview</Link>
+            <Link href="/privacy" className="hover:text-[#7A6E65] transition-colors">Privacy</Link>
+            <Link href="/terms" className="hover:text-[#7A6E65] transition-colors">Terms</Link>
           </div>
         </div>
       </footer>

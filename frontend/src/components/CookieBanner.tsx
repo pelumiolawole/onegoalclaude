@@ -50,6 +50,13 @@ export default function CookieBanner() {
               >
                 Privacy policy
               </a>
+              {' '}·{' '}
+              <a
+                href="/terms"
+                className="text-[#7A6E65] underline underline-offset-2 hover:text-[#A09690] transition-colors"
+              >
+                Terms
+              </a>
             </p>
             <div className="flex gap-2">
               <button
