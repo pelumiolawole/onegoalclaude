@@ -366,9 +366,10 @@ async def run_reengagement_emails() -> None:
                         from sqlalchemy import text as t
                         await db2.execute(t("""
                             INSERT INTO notification_queue
-                                (user_id, channel, sent_at)
+                                (user_id, type, title, body, channel, scheduled_at, sent_at)
                             VALUES
-                                (CAST(:user_id AS uuid), 'email', NOW())
+                                (CAST(:user_id AS uuid), 'reengagement', 'Get back on track',
+                                 'You have tasks waiting', 'email', NOW(), NOW())
                         """), {"user_id": str(user_id)})
                         await db2.commit()
                     sent_count += 1
