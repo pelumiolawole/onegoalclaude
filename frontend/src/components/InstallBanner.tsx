@@ -138,7 +138,7 @@ export default function InstallBanner() {
 
   async function handlePushRequest() {
     await requestPushPermission()
-    setPushGranted(Notification.permission === 'granted')
+    setPushGranted(typeof Notification !== 'undefined' && Notification.permission === 'granted')
   }
 
   const steps = activeTab === 'ios' ? IOS_STEPS : ANDROID_STEPS
