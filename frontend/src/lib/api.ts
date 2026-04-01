@@ -159,6 +159,19 @@ class ApiClient {
         }
       }
 
+      // Redirect mid-onboarding users back into the interview flow.
+      // Users who signed up but haven't completed onboarding have a valid
+      // token but hit 403 on protected routes. Rather than showing a broken
+      // state, send them back to where they need to be.
+      if (res.status === 403 && requiresAuth) {
+        const code = typeof errorData.detail === 'object'
+          ? errorData.detail?.code
+          : null
+        if (code === 'onboarding_incomplete' && typeof window !== 'undefined') {
+          window.location.href = '/onboarding/interview'
+        }
+      }
+
       throw err
     }
 
@@ -190,13 +203,13 @@ class ApiClient {
   // ── Auth ────────────────────────────────────────────────────
 
   auth = {
-    
+
     oauthCallback: (data: { supabase_token: string; timezone: string; display_name?: string }) =>
       this.request<TokenResponse>('/auth/oauth/callback', {
         method: 'POST',
         body: JSON.stringify(data),
       }, false),
-      
+
     signup: (data: { email: string; password: string; display_name?: string; timezone?: string }) =>
       this.request<TokenResponse>('/auth/signup', {
         method: 'POST',
