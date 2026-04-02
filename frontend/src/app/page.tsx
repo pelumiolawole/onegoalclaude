@@ -608,7 +608,7 @@ export default function LandingPage() {
               >
                 Annual
                 <span className={`text-xs px-1.5 py-0.5 rounded-md ${billing === 'annual' ? 'bg-[#0A0908]/20' : 'bg-[#F59E0B]/10 text-[#F59E0B]'}`}>
-                  Save up to 20%
+                  Save up to 20% on paid plans
                 </span>
               </button>
             </div>
