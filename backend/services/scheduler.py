@@ -229,7 +229,8 @@ async def run_daily_task_generation() -> None:
                 if tasks_generated > 1:
                     logger.info("backlog_tasks_generated", user_id=user_id, tasks_generated=tasks_generated)
 
-                await _send_daily_task_email_for_user(user_id)
+                if tasks_generated > 0:
+                    await _send_daily_task_email_for_user(user_id)
 
             except Exception as e:
                 error_count += 1

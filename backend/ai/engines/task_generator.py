@@ -156,7 +156,6 @@ class TaskGeneratorEngine(BaseAIEngine):
                 WHERE user_id = :user_id
                   AND scheduled_date >= :start_date
                   AND scheduled_date <= :end_date
-                  AND task_type = 'becoming'
                   AND status != 'skipped'
             """),
             {
