@@ -33,6 +33,28 @@ context_builder = ContextBuilder()
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5MB
 
+# Magic byte signatures for image validation (prevents MIME spoofing)
+_MAGIC_BYTES: list[tuple[bytes, str]] = [
+    (b"\xff\xd8\xff", "image/jpeg"),
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+    (b"RIFF", "image/webp"),  # validated further below
+]
+
+
+def _detect_image_mime(data: bytes) -> str | None:
+    """
+    Detect image MIME type from magic bytes, not the client-supplied header.
+    Returns the MIME type string or None if unrecognised.
+    """
+    if data[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    # WebP: bytes 0-3 == "RIFF", bytes 8-11 == "WEBP"
+    if data[:4] == b"RIFF" and len(data) >= 12 and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
 
 # ─── Response schemas ─────────────────────────────────────────────────────────
 
@@ -129,12 +151,6 @@ async def upload_avatar(
     Upload profile photo to Supabase Storage using supabase-py.
     Using the SDK avoids the signature verification issue with raw httpx calls.
     """
-    if file.content_type not in ALLOWED_IMAGE_TYPES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"File type {file.content_type} not allowed. Use JPEG, PNG, or WebP.",
-        )
-
     contents = await file.read()
     if len(contents) > MAX_IMAGE_BYTES:
         raise HTTPException(
@@ -142,7 +158,15 @@ async def upload_avatar(
             detail="File too large. Maximum size is 5MB.",
         )
 
-    ext = file.content_type.split("/")[1]
+    # Validate by magic bytes — never trust the client-supplied Content-Type
+    actual_mime = _detect_image_mime(contents)
+    if actual_mime is None or actual_mime not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file type. Only JPEG, PNG, and WebP images are allowed.",
+        )
+
+    ext = actual_mime.split("/")[1]
     if ext == "jpeg":
         ext = "jpg"
     object_path = f"{current_user.id}/{uuid.uuid4()}.{ext}"
@@ -154,7 +178,7 @@ async def upload_avatar(
         supabase_client.storage.from_("avatars").upload(
             path=object_path,
             file=contents,
-            file_options={"content-type": file.content_type, "upsert": "true"},
+            file_options={"content-type": actual_mime, "upsert": "true"},
         )
 
         public_url = supabase_client.storage.from_("avatars").get_public_url(object_path)
@@ -272,7 +296,7 @@ OUTPUT: Just the message. Nothing else."""
     message = await _call_openai(prompt, max_tokens=180)
 
     ref_slug = _make_ref_slug(current_user.display_name or current_user.email)
-    share_url = f"https://onegoalpro.vercel.app?ref={ref_slug}"
+    share_url = f"{settings.frontend_url}?ref={ref_slug}"
     full_text = f"{message}\n\n{share_url}"
 
     logger.info("share_message_generated", user_id=str(current_user.id))

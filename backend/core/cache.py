@@ -172,3 +172,26 @@ async def release_lock(resource: str) -> None:
     """Release a distributed lock after job completes."""
     r = await get_redis()
     await r.delete(_key("lock", resource))
+
+
+# ─── Access Token Blocklist ──────────────────────────────────────────────────
+
+async def blocklist_access_token(jti: str, ttl_seconds: int) -> None:
+    """
+    Add a JWT access token's JTI to the blocklist.
+    Called on logout so the token cannot be reused before it expires.
+
+    TTL should equal the token's remaining lifetime so the blocklist
+    entry auto-expires at the same time as the token itself.
+    """
+    r = await get_redis()
+    await r.setex(_key("blocklist", jti), max(ttl_seconds, 1), "1")
+
+
+async def is_token_blocklisted(jti: str) -> bool:
+    """
+    Check whether a JWT access token has been blocklisted.
+    Called on every authenticated request in get_current_user().
+    """
+    r = await get_redis()
+    return bool(await r.exists(_key("blocklist", jti)))

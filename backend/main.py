@@ -20,6 +20,31 @@ from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
 from core.config import settings
 
+# Paths that may contain sensitive user content — scrub from Sentry
+_SENSITIVE_PATH_PREFIXES = (
+    "/api/coach/",
+    "/api/onboarding/interview",
+    "/api/reflections",
+)
+
+
+def _sentry_before_send(event: dict, hint: dict) -> dict | None:
+    """
+    Scrub AI conversation content and personal data before sending to Sentry.
+    Removes request body from coach/interview/reflection routes entirely.
+    """
+    try:
+        request = event.get("request", {})
+        url = request.get("url", "")
+        if any(p in url for p in _SENSITIVE_PATH_PREFIXES):
+            request.pop("data", None)   # remove request body
+            request.pop("cookies", None)
+            event["request"] = request
+    except Exception:
+        pass
+    return event
+
+
 # Initialize Sentry before app creation
 if settings.sentry_dsn:
     sentry_sdk.init(
@@ -28,9 +53,10 @@ if settings.sentry_dsn:
             StarletteIntegration(),
             FastApiIntegration(),
         ],
-        traces_sample_rate=1.0,  # Adjust: 0.1 for production (10% of requests)
-        profiles_sample_rate=1.0,
+        traces_sample_rate=0.05,   # 5% of requests — not 100%
+        profiles_sample_rate=0.0,  # disabled — too much personal data exposure
         environment=settings.environment,
+        before_send=_sentry_before_send,
     )
 
 from contextlib import asynccontextmanager

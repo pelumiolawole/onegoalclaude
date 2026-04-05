@@ -35,7 +35,8 @@ from ai.engines.goal_decomposer import GoalDecomposerEngine
 from ai.engines.interview import InterviewEngine
 from ai.engines.task_generator import TaskGeneratorEngine
 from api.dependencies.auth import get_current_active_user
-from core.cache import invalidate_user_context
+from core.cache import check_and_increment_ai_rate, invalidate_user_context
+from core.config import settings
 from core.database import get_db
 from db.models.user import OnboardingStatus, User
 
@@ -159,6 +160,23 @@ async def send_interview_message(
                 "code": "interview_already_complete",
                 "message": "Interview is already complete.",
                 "current_status": current_user.onboarding_status.value,
+            },
+        )
+
+    # Enforce per-user interview message limit to prevent OpenAI cost drain
+    allowed, count = await check_and_increment_ai_rate(
+        user_id=str(current_user.id),
+        engine="interview",
+        limit=settings.ai_interview_message_limit,
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "code": "interview_limit_reached",
+                "message": "You've sent too many messages. Please try again later.",
+                "count": count,
+                "limit": settings.ai_interview_message_limit,
             },
         )
 

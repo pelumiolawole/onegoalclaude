@@ -25,7 +25,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.cache import get_cached_user_context, get_redis
+from core.cache import get_cached_user_context, get_redis, is_token_blocklisted
 from core.config import settings
 from core.database import get_db
 from core.security import decode_token
@@ -58,6 +58,16 @@ async def get_current_user(
         - User no longer exists
     """
     payload = decode_token(credentials.credentials, expected_type="access")
+
+    # Reject blocklisted tokens (revoked on logout)
+    jti = payload.get("jti")
+    if jti and await is_token_blocklisted(jti):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     user_id_str = payload.get("sub")
 
     if not user_id_str:
@@ -261,13 +271,9 @@ async def require_admin(
 ) -> User:
     """
     Dependency to require admin access.
+    Admin emails are configured via the ADMIN_EMAILS environment variable.
     """
-    ADMIN_EMAILS = [
-        "hello@onegoalpro.app",
-        "olawolepelumisunday@gmail.com",
-    ]
-
-    if current_user.email not in ADMIN_EMAILS:
+    if current_user.email.lower() not in settings.admin_emails_list:
         logger.warning(
             "admin_access_denied",
             user_id=str(current_user.id),

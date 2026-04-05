@@ -23,7 +23,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies.auth import get_current_active_user
+from api.dependencies.auth import bearer_scheme, get_current_active_user
+from fastapi.security import HTTPAuthorizationCredentials
 from api.schemas.auth import (
     ChangePasswordRequest,
     ForgotPasswordRequest,
@@ -36,6 +37,8 @@ from api.schemas.auth import (
     UserSummary,
 )
 from core.cache import (
+    blocklist_access_token,
+    get_redis,
     get_refresh_token,
     invalidate_user_context,
     revoke_refresh_token,
@@ -47,6 +50,7 @@ from core.security import (
     create_token_pair,
     decode_token,
     hash_password,
+    hash_token,
     verify_password,
     verify_supabase_token,
 )
@@ -114,17 +118,17 @@ async def signup(
         hashed_password=hash_password(payload.password),
         timezone=payload.timezone,
         onboarding_status=OnboardingStatus.CREATED,
-        email_verification_token=verification_token,
+        email_verification_token=hash_token(verification_token),  # store hash only
         email_verification_sent_at=datetime.now(timezone.utc),
         is_active=False,  # Inactive until verified
     )
     db.add(user)
     await db.flush()
 
-    logger.info("user_signed_up", user_id=str(user.id), email=user.email)
+    logger.info("user_signed_up", user_id=str(user.id))
     track_signup(str(user.id), user.email, "email")
 
-    # Send verification email
+    # Send verification email (plaintext token in URL — hash is in DB)
     verification_url = f"{settings.frontend_url}/verify-email?token={verification_token}"
     await email_service.send_verification_email(
         to_email=user.email,
@@ -160,7 +164,7 @@ async def signup(
 async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
     """Verify email with magic link token"""
     result = await db.execute(
-        select(User).where(User.email_verification_token == token)
+        select(User).where(User.email_verification_token == hash_token(token))
     )
     user = result.scalar_one_or_none()
     
@@ -215,26 +219,39 @@ async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
 )
 async def resend_verification(payload: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
     """Resend verification email"""
+    _generic_response = {
+        "status": "accepted",
+        "message": "If an account exists with this email, a verification link has been sent.",
+    }
+
+    # Per-email cooldown — 5 minutes between resend attempts
+    try:
+        r = await get_redis()
+        cooldown_key = f"ongoal:email_cooldown:verify:{payload.email.lower()}"
+        if await r.exists(cooldown_key):
+            return _generic_response
+        await r.setex(cooldown_key, 300, "1")
+    except Exception:
+        pass  # Redis unavailable — allow through
+
     result = await db.execute(
         select(User).where(User.email == payload.email.lower())
     )
     user = result.scalar_one_or_none()
-    
+
     # Always return success to prevent email enumeration
     if not user or user.email_verified_at:
-        return {
-            "status": "accepted",
-            "message": "If an account exists with this email, a verification link has been sent."
-        }
-    
-    # Generate new token
-    user.email_verification_token = secrets.token_urlsafe(32)
+        return _generic_response
+
+    # Generate new token — store hash, send plaintext
+    new_token = secrets.token_urlsafe(32)
+    user.email_verification_token = hash_token(new_token)
     user.email_verification_sent_at = datetime.now(timezone.utc)
-    
+
     await db.commit()
-    
+
     # Send verification email
-    verification_url = f"{settings.frontend_url}/verify-email?token={user.email_verification_token}"
+    verification_url = f"{settings.frontend_url}/verify-email?token={new_token}"
     await email_service.send_verification_email(
         to_email=user.email,
         first_name=user.display_name,
@@ -277,7 +294,7 @@ async def login(
         )
 
     if not verify_password(payload.password, user.hashed_password):
-        logger.warning("failed_login_attempt", email=payload.email)
+        logger.warning("failed_login_attempt", email_hash=hash_token(payload.email.lower())[:16])
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password.",
@@ -486,13 +503,25 @@ async def refresh_token(
     summary="Logout and revoke session",
 )
 async def logout(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     current_user: User = Depends(get_current_active_user),
 ) -> None:
     """
-    Revoke the user's refresh token.
-    The access token remains technically valid until it expires (24h),
-    but without a refresh token, the session cannot be extended.
+    Revoke the user's session.
+    - Refresh token is deleted from Redis (session cannot be extended).
+    - Access token JTI is added to the blocklist until it expires.
     """
+    # Blocklist the access token so it cannot be reused post-logout
+    try:
+        payload = decode_token(credentials.credentials, expected_type="access")
+        jti = payload.get("jti")
+        if jti:
+            exp = payload.get("exp", 0)
+            ttl = max(int(exp - datetime.now(timezone.utc).timestamp()), 1)
+            await blocklist_access_token(jti, ttl)
+    except Exception:
+        pass  # Token already validated by get_current_active_user; best effort blocklist
+
     await revoke_refresh_token(str(current_user.id))
     await invalidate_user_context(str(current_user.id))
     logger.info("user_logged_out", user_id=str(current_user.id))
@@ -596,34 +625,49 @@ async def forgot_password(
     Request a password reset email.
     Always returns 202 to prevent email enumeration attacks.
     """
+    _generic_response = {
+        "status": "accepted",
+        "message": "If an account exists with this email, you will receive a password reset link.",
+    }
+
+    # Per-email cooldown — 5 minutes between reset requests
+    try:
+        r = await get_redis()
+        cooldown_key = f"ongoal:email_cooldown:reset:{payload.email.lower()}"
+        if await r.exists(cooldown_key):
+            return _generic_response
+        await r.setex(cooldown_key, 300, "1")
+    except Exception:
+        pass  # Redis unavailable — allow through
+
     # Find user by email
     result = await db.execute(
         select(User).where(User.email == payload.email.lower())
     )
     user = result.scalar_one_or_none()
-    
+
     # Generate token regardless of whether user exists (prevents enumeration)
     token = secrets.token_urlsafe(32)
-    
+
     if user:
         # Only store token if user exists and has password auth
         if user.hashed_password:
             expires_at = datetime.now(timezone.utc) + timedelta(
                 hours=settings.password_reset_token_expire_hours
             )
-            
+
             await db.execute(
                 update(User)
                 .where(User.id == user.id)
                 .values(
-                    password_reset_token=token,
+                    password_reset_token=hash_token(token),  # store hash, not plaintext
                     password_reset_expires_at=expires_at,
                     password_reset_used_at=None,
                 )
             )
             await db.commit()
-            
-            # Send email (async, don't block response)
+
+            # Send plaintext token in email — hash is in DB
             await email_service.send_password_reset(user.email, token)
             
             logger.info("password_reset_requested", user_id=str(user.id))
@@ -633,11 +677,7 @@ async def forgot_password(
                          user_id=str(user.id), 
                          email=user.email)
     
-    # Always return same response to prevent enumeration
-    return {
-        "status": "accepted",
-        "message": "If an account exists with this email, you will receive a password reset link."
-    }
+    return _generic_response
 
 
 @router.post(
@@ -652,9 +692,9 @@ async def reset_password(
     """
     Complete password reset using the token from the email.
     """
-    # Find user by token
+    # Find user by hashed token
     result = await db.execute(
-        select(User).where(User.password_reset_token == payload.token)
+        select(User).where(User.password_reset_token == hash_token(payload.token))
     )
     user = result.scalar_one_or_none()
     

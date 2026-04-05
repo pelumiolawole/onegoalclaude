@@ -14,9 +14,10 @@ Design note: We use a two-token system:
 On logout, the refresh token is deleted from Redis — effectively revoking the session.
 """
 
+import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import bcrypt
 import jwt
@@ -77,6 +78,7 @@ def create_access_token(
     payload: dict[str, Any] = {
         "sub": str(user_id),
         "type": ACCESS_TOKEN_TYPE,
+        "jti": str(uuid4()),
         "iat": now,
         "exp": expire,
     }
@@ -144,10 +146,10 @@ def decode_token(token: str, expected_type: str = ACCESS_TOKEN_TYPE) -> dict[str
             detail="Token has expired",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    except InvalidTokenError as e:
+    except InvalidTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid token: {e}",
+            detail="Invalid token",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -209,11 +211,25 @@ async def verify_supabase_token(supabase_token: str) -> dict[str, Any]:
             "provider": response.user.app_metadata.get("provider", "email"),
             "user_metadata": response.user.user_metadata or {},
         }
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Supabase token verification failed: {e}",
+            detail="Authentication failed",
         )
+
+
+# ─── Token Hashing ───────────────────────────────────────────────────────────
+
+def hash_token(token: str) -> str:
+    """
+    SHA-256 hash a secret token before storing in the database.
+    Prevents DB-read attacks from exposing usable reset/verification links.
+
+    Usage:
+        store:  user.password_reset_token = hash_token(plaintext_token)
+        verify: where(User.password_reset_token == hash_token(submitted_token))
+    """
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 # ─── Security Utilities ──────────────────────────────────────────────────────

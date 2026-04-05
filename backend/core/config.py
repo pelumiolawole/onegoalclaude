@@ -85,7 +85,7 @@ class Settings(BaseSettings):
         description="Secret key for signing JWTs — must be 32+ chars",
     )
     jwt_algorithm: str = "HS256"
-    jwt_access_token_expire_minutes: int = 60 * 24        # 24 hours
+    jwt_access_token_expire_minutes: int = 60              # 1 hour
     jwt_refresh_token_expire_days: int = 30
 
     # ─── Supabase ───────────────────────────────────────────────────────
@@ -148,6 +148,16 @@ class Settings(BaseSettings):
     vapid_public_key: str = Field(default="", description="VAPID public key for web push")
     vapid_private_key: str = Field(default="", description="VAPID private key for web push")
     vapid_email: str = Field(default="mailto:hello@onegoalpro.app", description="VAPID contact email")
+
+    # ─── Admin ──────────────────────────────────────────────────────────
+    admin_emails: str = Field(
+        default="hello@onegoalpro.app",
+        description="Comma-separated list of admin email addresses",
+    )
+
+    @property
+    def admin_emails_list(self) -> list[str]:
+        return [e.strip().lower() for e in self.admin_emails.split(",") if e.strip()]
 
     # ─── Stripe ─────────────────────────────────────────────────────────
     stripe_webhook_secret: str = Field(

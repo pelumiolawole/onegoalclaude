@@ -63,11 +63,15 @@ class BillingService:
         self.stripe = stripe
 
     def _normalize_subscription_status(self, stripe_status: str, cancel_at_period_end: bool) -> str:
-        """Normalize subscription status to 'active' or 'ended'."""
-        if cancel_at_period_end:
-            return "ended"
+        """
+        Normalize Stripe subscription status to 'active' or 'ended'.
+
+        cancel_at_period_end=True means the user SCHEDULED a cancellation —
+        they still have paid access until current_period_end.  Returning 'ended'
+        here would immediately revoke access, which is wrong.
+        """
         if stripe_status in ["active", "trialing"]:
-            return "active"
+            return "active"  # User retains access even if cancel is scheduled
         return "ended"
 
     async def create_checkout_session(
@@ -191,10 +195,11 @@ class BillingService:
                 cancel_at_period_end=True
             )
 
+            # User retains active access until period_end — only flag the scheduled cancel
             await db.execute(
                 text("""
                     UPDATE users
-                    SET subscription_status = 'ended',
+                    SET subscription_status = 'active',
                         cancel_at_period_end = true,
                         subscription_updated_at = NOW()
                     WHERE stripe_subscription_id = :subscription_id
@@ -205,7 +210,7 @@ class BillingService:
             await db.execute(
                 text("""
                     UPDATE subscriptions
-                    SET status = 'ended',
+                    SET status = 'active',
                         cancel_at_period_end = true,
                         updated_at = NOW()
                     WHERE stripe_subscription_id = :subscription_id

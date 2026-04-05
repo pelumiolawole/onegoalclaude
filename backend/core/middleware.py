@@ -148,8 +148,18 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     headers={"Retry-After": str(self.WINDOW)},
                 )
         except Exception as e:
-            # If Redis is unavailable, fail open (don't block requests)
-            logger.warning("rate_limit_redis_error", error=str(e))
+            logger.warning("rate_limit_redis_error", error=str(e), path=path)
+            # Fail closed on auth endpoints — brute-force protection is more important
+            # than availability of these specific routes when Redis is down.
+            # All other API routes fail open to preserve service availability.
+            if path.startswith(self.AUTH_PATH_PREFIX):
+                return JSONResponse(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    content={
+                        "error": "service_unavailable",
+                        "detail": "Authentication service temporarily unavailable. Please try again shortly.",
+                    },
+                )
 
         return await call_next(request)
 
