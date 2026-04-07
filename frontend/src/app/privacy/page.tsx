@@ -14,7 +14,7 @@ export default function PrivacyPage() {
         <div className="mb-12">
           <p className="text-[#F59E0B] text-xs uppercase tracking-widest font-mono mb-4">Legal</p>
           <h1 className="font-display text-4xl text-[#F5F1ED] mb-4">Privacy Policy</h1>
-          <p className="text-[#5C524A] text-sm font-mono">Last updated: March 28, 2026</p>
+          <p className="text-[#5C524A] text-sm font-mono">Last updated: March 31, 2026</p>
         </div>
 
         <div className="space-y-10 text-[15px] leading-relaxed">
@@ -28,7 +28,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-[#E8E2DC] font-medium text-lg mb-3">1. Who we are</h2>
             <p className="text-[#7A6E65]">
-              OneGoal Pro is operated by IIC Networks (Influence, Impact, Change). If you have questions about this policy, contact us at <a href="mailto:hello@onegoalpro.app" className="text-[#F59E0B] hover:underline">hello@onegoalpro.app</a>.
+              OneGoal Pro is operated by One Goal Pro Ltd, a company registered in England and Wales (company number 17127527). If you have questions about this policy, contact us at <a href="mailto:hello@onegoalpro.app" className="text-[#F59E0B] hover:underline">hello@onegoalpro.app</a>.
             </p>
           </section>
 
