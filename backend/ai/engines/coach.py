@@ -157,6 +157,7 @@ class CoachEngine(BaseAIEngine):
             memories=memories_str or "No relevant memories retrieved.",
             coaching_mode=coaching_mode,
             daily_context=daily_context,
+            goal_completion_context=context.get("goal_completion_context", ""),
         )
 
         # ── Load recent messages, save user message, handle new session ──
