@@ -450,7 +450,7 @@ export default function SettingsPage() {
                         {formatCurrency(invoice.amount_paid || invoice.amount_due)}
                       </span>
                       {invoice.invoice_pdf && (
-                        
+                        <a
                           href={invoice.invoice_pdf}
                           target="_blank"
                           rel="noopener noreferrer"
