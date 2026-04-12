@@ -729,6 +729,11 @@ export default function LandingPage() {
             <Link href="/terms" className="hover:text-[#7A6E65] transition-colors">Terms</Link>
           </div>
         </div>
+        <div className="max-w-5xl mx-auto mt-6 pt-6 border-t border-white/5 text-center">
+          <p className="text-[#3D3630] text-xs">
+            One Goal Pro Ltd &middot; Company No. 17127527 &middot; Registered in England and Wales &middot; 5 Brayford Square, London, E1 0SG
+          </p>
+        </div>
       </footer>
     </div>
   )
