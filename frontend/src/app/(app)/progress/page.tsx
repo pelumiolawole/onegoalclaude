@@ -13,6 +13,7 @@ export default function ProgressPage() {
   const { data: timeline } = useSWR('/progress/timeline',        () => api.progress.getTimeline(30))
   const { data: traits }   = useSWR('/progress/traits/timeline', () => api.progress.getTraitsTimeline())
   const { data: streak }   = useSWR('/progress/streak',          () => api.progress.getStreak())
+  const { data: patterns } = useSWR('/progress/patterns',        () => api.progress.getPatterns())
 
   const hasTimeline     = timeline?.timeline?.length > 0
   const hasTraits       = traits?.traits?.length > 0
@@ -242,6 +243,159 @@ export default function ProgressPage() {
         )}
       </motion.div>
 
+      {/* Behavioural patterns */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.25 }}
+        className="bg-[#141210] border border-white/5 rounded-2xl p-5"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-[#5C524A] text-xs uppercase tracking-widest font-mono">
+            What the system knows about you
+          </p>
+          {patterns && !patterns.locked && (
+            <span className="text-[#008e97] text-xs font-mono px-2 py-0.5 border border-[#008e97]/30 rounded-full">
+              Identity
+            </span>
+          )}
+        </div>
+
+        {!patterns ? (
+          <PatternsSkeleton />
+        ) : patterns.locked ? (
+          <div className="text-center py-6">
+            <div className="w-10 h-10 rounded-full bg-[#1E1B18] flex items-center justify-center mx-auto mb-3">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3D3630" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+            </div>
+            <p className="text-[#5C524A] text-sm mb-1">Available on The Identity plan</p>
+            <p className="text-[#3D3630] text-xs mb-4">
+              The system is already learning your patterns. Upgrade to see what it knows.
+            </p>
+            <a
+              href="/settings/upgrade?plan=identity"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[#008e97]/10 border border-[#008e97]/20 rounded-xl text-[#008e97] text-sm hover:bg-[#008e97]/20 transition-all"
+            >
+              Commit fully
+            </a>
+          </div>
+        ) : patterns.patterns?.length === 0 && !patterns.snapshot ? (
+          <p className="text-[#3D3630] text-sm">
+            Patterns will emerge as you engage with the product over time.
+          </p>
+        ) : (
+          <div className="space-y-5">
+
+            {/* Behaviour summary from latest snapshot */}
+            {patterns.snapshot?.behavior_summary && (
+              <div className="bg-[#0A0908] rounded-xl p-4 border border-white/5">
+                <p className="text-[#C4BBB5] text-sm leading-relaxed italic">
+                  "{patterns.snapshot.behavior_summary}"
+                </p>
+                {patterns.snapshot.dominant_pattern && (
+                  <p className="text-[#3D3630] text-xs font-mono mt-2">
+                    Dominant pattern: {patterns.snapshot.dominant_pattern}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* How you work */}
+            {patterns.snapshot && (
+              <div>
+                <p className="text-[#3D3630] text-xs uppercase tracking-widest font-mono mb-3">
+                  How you work
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {patterns.snapshot.most_active_day && (
+                    <div className="bg-[#1E1B18] rounded-xl p-3">
+                      <p className="text-[#3D3630] text-[10px] uppercase tracking-wider font-mono mb-1">Most active</p>
+                      <p className="text-[#C4BBB5] text-sm capitalize">{patterns.snapshot.most_active_day}</p>
+                    </div>
+                  )}
+                  {patterns.snapshot.morning_person_score !== undefined && (
+                    <div className="bg-[#1E1B18] rounded-xl p-3">
+                      <p className="text-[#3D3630] text-[10px] uppercase tracking-wider font-mono mb-1">Morning person</p>
+                      <p className="text-[#C4BBB5] text-sm">
+                        {patterns.snapshot.morning_person_score >= 0.6
+                          ? 'Yes'
+                          : patterns.snapshot.morning_person_score <= 0.4
+                          ? 'No'
+                          : 'Mixed'}
+                      </p>
+                    </div>
+                  )}
+                  {patterns.snapshot.breakthrough_episodes !== undefined && (
+                    <div className="bg-[#1E1B18] rounded-xl p-3">
+                      <p className="text-[#3D3630] text-[10px] uppercase tracking-wider font-mono mb-1">Breakthroughs</p>
+                      <p className="text-[#4ADE80] text-sm font-mono">{patterns.snapshot.breakthrough_episodes}</p>
+                    </div>
+                  )}
+                  {patterns.snapshot.resistance_episodes !== undefined && (
+                    <div className="bg-[#1E1B18] rounded-xl p-3">
+                      <p className="text-[#3D3630] text-[10px] uppercase tracking-wider font-mono mb-1">Resistance</p>
+                      <p className="text-[#F87171] text-sm font-mono">{patterns.snapshot.resistance_episodes}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Named patterns */}
+            {patterns.patterns?.length > 0 && (
+              <div>
+                <p className="text-[#3D3630] text-xs uppercase tracking-widest font-mono mb-3">
+                  Detected patterns
+                </p>
+                <div className="space-y-2">
+                  {patterns.patterns.map((p: any, i: number) => (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, x: -6 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.25 + i * 0.04 }}
+                      className={`flex gap-3 rounded-xl p-3 border ${
+                        p.type === 'breakthrough'
+                          ? 'bg-green-950/10 border-green-900/20'
+                          : p.type === 'resistance'
+                          ? 'bg-red-950/10 border-red-900/20'
+                          : 'bg-[#1E1B18] border-white/5'
+                      }`}
+                    >
+                      <div className={`w-1.5 rounded-full shrink-0 mt-1 ${
+                        p.type === 'breakthrough' ? 'bg-[#4ADE80]' :
+                        p.type === 'resistance' ? 'bg-[#F87171]' : 'bg-[#5C524A]'
+                      }`} style={{ minHeight: '16px' }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-0.5">
+                          <p className={`text-sm font-medium capitalize truncate ${
+                            p.type === 'breakthrough' ? 'text-[#4ADE80]' :
+                            p.type === 'resistance' ? 'text-[#F87171]' : 'text-[#C4BBB5]'
+                          }`}>
+                            {p.name}
+                          </p>
+                          <span className="text-[#3D3630] text-[10px] font-mono shrink-0">
+                            {Math.round(p.confidence * 100)}% confidence
+                          </span>
+                        </div>
+                        <p className="text-[#5C524A] text-xs leading-relaxed">{p.description}</p>
+                        <p className="text-[#3D3630] text-[10px] font-mono mt-1">
+                          {p.evidence_count} {p.evidence_count === 1 ? 'instance' : 'instances'} · first seen {p.first_detected}
+                        </p>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+          </div>
+        )}
+      </motion.div>
+
     </div>
   )
 }
@@ -281,6 +435,17 @@ function ScoreSkeleton() {
         {[...Array(4)].map((_, i) => (
           <div key={i} className="h-20 bg-[#1E1B18] rounded-xl" />
         ))}
+      </div>
+    </div>
+  )
+}
+
+function PatternsSkeleton() {
+  return (
+    <div className="animate-pulse space-y-3">
+      <div className="h-16 bg-[#1E1B18] rounded-xl" />
+      <div className="grid grid-cols-2 gap-2">
+        {[...Array(4)].map((_, i) => <div key={i} className="h-14 bg-[#1E1B18] rounded-xl" />)}
       </div>
     </div>
   )

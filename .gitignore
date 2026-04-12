@@ -9,3 +9,4 @@ node_modules/
 .DS_Store
 mnt/.claude/worktrees/
 .claude/
+send_campaign.py

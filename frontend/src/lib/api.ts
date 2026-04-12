@@ -406,6 +406,9 @@ class ApiClient {
 
     getStreak: () =>
       this.request<any>('/progress/streak'),
+
+    getPatterns: () =>
+      this.request<any>('/progress/patterns'),
   }
 
   // ── Profile ──────────────────────────────────────────────────

@@ -9,6 +9,7 @@ GET  /progress/streak           — streak data with history
 GET  /progress/timeline         — score history over time (for charts)
 GET  /progress/traits/timeline  — trait score history
 GET  /progress/weekly-reviews   — list of all weekly reviews
+GET  /progress/patterns         — behavioural pattern summary (Identity tier only)
 POST /progress/refresh-scores   — manually trigger score recalculation
 """
 
@@ -491,3 +492,120 @@ async def refresh_scores(
             status_code=500,
             detail=f"Score recalculation failed: {str(e)}",
         )
+
+
+# ─── Behavioural Patterns ─────────────────────────────────────────────────────
+
+@router.get(
+    "/patterns",
+    summary="Behavioural pattern summary — Identity tier only",
+)
+async def get_patterns(
+    current_user: User = Depends(get_onboarded_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Returns the system's learned behavioural patterns for this user.
+    Full data is restricted to The Identity tier.
+    Forge and Free receive a locked response with upgrade prompt.
+    """
+    uid = str(current_user.id)
+
+    # Tier check — Identity only
+    plan = getattr(current_user, "subscription_plan", "spark") or "spark"
+    if plan != "identity":
+        return {
+            "locked": True,
+            "tier_required": "identity",
+            "message": "Behavioural pattern analysis is available on The Identity plan.",
+        }
+
+    # ── Named patterns ────────────────────────────────────────────
+    patterns_result = await db.execute(
+        text("""
+            SELECT
+                pattern_type, pattern_name, description,
+                confidence, evidence_count,
+                first_detected, last_confirmed
+            FROM behavioral_patterns
+            WHERE user_id = :user_id
+              AND is_active = TRUE
+            ORDER BY last_confirmed DESC
+            LIMIT 10
+        """),
+        {"user_id": uid},
+    )
+    patterns = [
+        {
+            "type": r.pattern_type,
+            "name": r.pattern_name,
+            "description": r.description,
+            "confidence": float(r.confidence),
+            "evidence_count": r.evidence_count,
+            "first_detected": str(r.first_detected),
+            "last_confirmed": str(r.last_confirmed),
+        }
+        for r in patterns_result.fetchall()
+    ]
+
+    # ── Latest behavioural snapshot ───────────────────────────────
+    snapshot_result = await db.execute(
+        text("""
+            SELECT
+                week_start_date,
+                most_active_day, least_active_day,
+                morning_person_score, weekend_engagement,
+                avg_reflection_words, avg_depth_score, reflection_growth,
+                emotional_range,
+                resistance_episodes, breakthrough_episodes,
+                coach_engagement_count, avg_session_length_mins,
+                behavior_summary, dominant_pattern
+            FROM behavioral_snapshots
+            WHERE user_id = :user_id
+            ORDER BY week_start_date DESC
+            LIMIT 1
+        """),
+        {"user_id": uid},
+    )
+    snap = snapshot_result.fetchone()
+    snapshot = None
+    if snap:
+        snapshot = {
+            "week_start": str(snap.week_start_date),
+            "most_active_day": snap.most_active_day,
+            "least_active_day": snap.least_active_day,
+            "morning_person_score": float(snap.morning_person_score or 0),
+            "weekend_engagement": float(snap.weekend_engagement or 0),
+            "avg_reflection_words": snap.avg_reflection_words or 0,
+            "avg_depth_score": float(snap.avg_depth_score or 0),
+            "reflection_growth": float(snap.reflection_growth or 0),
+            "emotional_range": snap.emotional_range or [],
+            "resistance_episodes": snap.resistance_episodes or 0,
+            "breakthrough_episodes": snap.breakthrough_episodes or 0,
+            "coach_engagement_count": snap.coach_engagement_count or 0,
+            "avg_session_length_mins": snap.avg_session_length_mins or 0,
+            "behavior_summary": snap.behavior_summary,
+            "dominant_pattern": snap.dominant_pattern,
+        }
+
+    # Counts for quick summary
+    breakthrough_count = sum(1 for p in patterns if p["type"] == "breakthrough")
+    resistance_count = sum(1 for p in patterns if p["type"] == "resistance")
+
+    logger.info(
+        "patterns_fetched",
+        user_id=uid,
+        pattern_count=len(patterns),
+        has_snapshot=snapshot is not None,
+    )
+
+    return {
+        "locked": False,
+        "patterns": patterns,
+        "snapshot": snapshot,
+        "summary": {
+            "total_patterns": len(patterns),
+            "breakthrough_count": breakthrough_count,
+            "resistance_count": resistance_count,
+        },
+    }
