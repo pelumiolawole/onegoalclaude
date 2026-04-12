@@ -28,7 +28,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-[#E8E2DC] font-medium text-lg mb-3">1. Who we are</h2>
             <p className="text-[#7A6E65]">
-              OneGoal Pro is operated by One Goal Pro Ltd, a company registered in England and Wales (company number 17127527). If you have questions about this policy, contact us at <a href="mailto:hello@onegoalpro.app" className="text-[#F59E0B] hover:underline">hello@onegoalpro.app</a>.
+              OneGoal Pro is operated by One Goal Pro Ltd, a company registered in England and Wales (company number 17127527). We are registered with the Information Commissioner’s Office as a data controller (registration reference: ZC117422). If you have questions about this policy, contact us at <a href="mailto:hello@onegoalpro.app" className="text-[#F59E0B] hover:underline">hello@onegoalpro.app</a>.
             </p>
           </section>
 
