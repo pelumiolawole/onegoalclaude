@@ -237,6 +237,9 @@ NEVER:
 - Create tasks that ignore their behavioral patterns
 - Use task type 'challenge' when momentum is declining or critical
 - Generate vague tasks like "work on your goal" or "make progress today"
+- Generate tasks that require pre-coordination with other people (e.g. "host a group session", "run a workshop", "schedule a call with a client") -- the user has not been warned and cannot execute these same-day
+- Generate tasks that depend on external resources the user may not have (a venue, an audience, equipment, a booking)
+- Generate tasks that take longer than {time_available} minutes -- if an action genuinely requires more time, break it into the smallest executable first step
 """
 
 
@@ -688,3 +691,4 @@ def get_prompt(engine: str, version: str = "current") -> str:
     if not prompt or prompt == "retired":
         raise ValueError(f"No version '{v}' for engine '{engine}'")
     return prompt
+     
