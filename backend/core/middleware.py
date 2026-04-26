@@ -111,7 +111,61 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         client_ip = request.client.host if request.client else "unknown"
 
-        # Determine applicable limit
+        class RateLimitMiddleware(BaseHTTPMiddleware):
+    """
+    Lightweight IP-based rate limiter for sensitive endpoints.
+    Uses Redis for distributed counting across multiple workers.
+
+    Limits:
+        /api/auth/*     → 20 requests per minute per IP
+        /api/*          → 200 requests per minute per IP
+        Everything else → no limit
+
+    Additionally: if an IP hits 10+ 404s within 60 seconds, it gets
+    blocked for 10 minutes. Catches credential-scanning attacks.
+    """
+
+    AUTH_PATH_PREFIX = "/api/auth"
+    API_PATH_PREFIX = "/api"
+
+    AUTH_LIMIT = 20
+    API_LIMIT = 200
+    WINDOW = 60
+
+    NOT_FOUND_LIMIT = 10
+    NOT_FOUND_WINDOW = 60
+    NOT_FOUND_BLOCK_DURATION = 600  # 10 minutes
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        path = request.url.path
+        client_ip = request.client.host if request.client else "unknown"
+
+        # Check if this IP is currently blocked for 404 scanning
+        try:
+            from core.cache import get_redis
+            r = await get_redis()
+
+            block_key = f"onegoal:blocked:{client_ip}"
+            is_blocked = await r.get(block_key)
+            if is_blocked:
+                logger.warning(
+                    "blocked_ip_request",
+                    client_ip=client_ip,
+                    path=path,
+                )
+                return JSONResponse(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    content={
+                        "error": "rate_limit_exceeded",
+                        "detail": "Too many requests. Please slow down.",
+                        "retry_after_seconds": self.NOT_FOUND_BLOCK_DURATION,
+                    },
+                    headers={"Retry-After": str(self.NOT_FOUND_BLOCK_DURATION)},
+                )
+        except Exception as e:
+            logger.warning("rate_limit_redis_error", error=str(e), path=path)
+
+        # Determine applicable rate limit
         if path.startswith(self.AUTH_PATH_PREFIX):
             limit = self.AUTH_LIMIT
             namespace = "rl:auth"
@@ -120,6 +174,71 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             namespace = "rl:api"
         else:
             return await call_next(request)
+
+        # Check rate limit via Redis
+        try:
+            from core.cache import get_redis
+            r = await get_redis()
+
+            key = f"onegoal:{namespace}:{client_ip}"
+            count = await r.incr(key)
+            if count == 1:
+                await r.expire(key, self.WINDOW)
+
+            if count > limit:
+                logger.warning(
+                    "rate_limit_exceeded",
+                    client_ip=client_ip,
+                    path=path,
+                    count=count,
+                )
+                return JSONResponse(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    content={
+                        "error": "rate_limit_exceeded",
+                        "detail": "Too many requests. Please slow down.",
+                        "retry_after_seconds": self.WINDOW,
+                    },
+                    headers={"Retry-After": str(self.WINDOW)},
+                )
+        except Exception as e:
+            logger.warning("rate_limit_redis_error", error=str(e), path=path)
+            if path.startswith(self.AUTH_PATH_PREFIX):
+                return JSONResponse(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    content={
+                        "error": "service_unavailable",
+                        "detail": "Authentication service temporarily unavailable. Please try again shortly.",
+                    },
+                )
+
+        # Process the request
+        response = await call_next(request)
+
+        # Track 404s and block IPs that hit too many
+        if response.status_code == 404:
+            try:
+                from core.cache import get_redis
+                r = await get_redis()
+
+                not_found_key = f"onegoal:404s:{client_ip}"
+                not_found_count = await r.incr(not_found_key)
+                if not_found_count == 1:
+                    await r.expire(not_found_key, self.NOT_FOUND_WINDOW)
+
+                if not_found_count >= self.NOT_FOUND_LIMIT:
+                    block_key = f"onegoal:blocked:{client_ip}"
+                    await r.setex(block_key, self.NOT_FOUND_BLOCK_DURATION, "1")
+                    logger.warning(
+                        "ip_blocked_404_burst",
+                        client_ip=client_ip,
+                        not_found_count=not_found_count,
+                        block_duration_seconds=self.NOT_FOUND_BLOCK_DURATION,
+                    )
+            except Exception as e:
+                logger.warning("404_tracking_redis_error", error=str(e))
+
+        return response
 
         # Check rate limit via Redis
         try:
