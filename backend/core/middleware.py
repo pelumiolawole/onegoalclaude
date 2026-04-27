@@ -94,32 +94,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     Uses Redis for distributed counting across multiple workers.
 
     Limits:
-        /api/auth/*     → 20 requests per minute per IP
-        /api/*          → 200 requests per minute per IP
-        Everything else → no limit
-    """
-
-    # Paths that get stricter limits
-    AUTH_PATH_PREFIX = "/api/auth"
-    API_PATH_PREFIX = "/api"
-
-    AUTH_LIMIT = 20     # per minute
-    API_LIMIT = 200     # per minute
-    WINDOW = 60         # seconds
-
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        path = request.url.path
-        client_ip = request.client.host if request.client else "unknown"
-
-        class RateLimitMiddleware(BaseHTTPMiddleware):
-    """
-    Lightweight IP-based rate limiter for sensitive endpoints.
-    Uses Redis for distributed counting across multiple workers.
-
-    Limits:
-        /api/auth/*     → 20 requests per minute per IP
-        /api/*          → 200 requests per minute per IP
-        Everything else → no limit
+        /api/auth/*     -> 20 requests per minute per IP
+        /api/*          -> 200 requests per minute per IP
+        Everything else -> no limit
 
     Additionally: if an IP hits 10+ 404s within 60 seconds, it gets
     blocked for 10 minutes. Catches credential-scanning attacks.
@@ -203,6 +180,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 )
         except Exception as e:
             logger.warning("rate_limit_redis_error", error=str(e), path=path)
+            # Fail closed on auth endpoints — brute-force protection is more important
+            # than availability of these specific routes when Redis is down.
             if path.startswith(self.AUTH_PATH_PREFIX):
                 return JSONResponse(
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -215,7 +194,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Process the request
         response = await call_next(request)
 
-        # Track 404s and block IPs that hit too many
+        # Track 404s and block IPs that hit too many within the window
         if response.status_code == 404:
             try:
                 from core.cache import get_redis
@@ -240,48 +219,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         return response
 
-        # Check rate limit via Redis
-        try:
-            from core.cache import get_redis
-
-            r = await get_redis()
-            key = f"ongoal:{namespace}:{client_ip}"
-            count = await r.incr(key)
-            if count == 1:
-                await r.expire(key, self.WINDOW)
-
-            if count > limit:
-                logger.warning(
-                    "rate_limit_exceeded",
-                    client_ip=client_ip,
-                    path=path,
-                    count=count,
-                )
-                return JSONResponse(
-                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    content={
-                        "error": "rate_limit_exceeded",
-                        "detail": "Too many requests. Please slow down.",
-                        "retry_after_seconds": self.WINDOW,
-                    },
-                    headers={"Retry-After": str(self.WINDOW)},
-                )
-        except Exception as e:
-            logger.warning("rate_limit_redis_error", error=str(e), path=path)
-            # Fail closed on auth endpoints — brute-force protection is more important
-            # than availability of these specific routes when Redis is down.
-            # All other API routes fail open to preserve service availability.
-            if path.startswith(self.AUTH_PATH_PREFIX):
-                return JSONResponse(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    content={
-                        "error": "service_unavailable",
-                        "detail": "Authentication service temporarily unavailable. Please try again shortly.",
-                    },
-                )
-
-        return await call_next(request)
-
 
 # ─── Error Handler ────────────────────────────────────────────────────────────
 
@@ -302,7 +239,6 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     )
 
     if settings.is_production:
-        # Never expose internal errors in production
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
@@ -312,7 +248,6 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
             },
         )
     else:
-        # In development, include the actual error
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
@@ -343,7 +278,6 @@ def configure_logging() -> None:
     ]
 
     if settings.is_development:
-        # Pretty console output for development
         structlog.configure(
             processors=shared_processors + [
                 structlog.dev.ConsoleRenderer(colors=True),
@@ -353,7 +287,6 @@ def configure_logging() -> None:
             logger_factory=structlog.stdlib.LoggerFactory(),
         )
     else:
-        # JSON output for production
         structlog.configure(
             processors=shared_processors + [
                 structlog.processors.dict_tracebacks,
@@ -364,5 +297,4 @@ def configure_logging() -> None:
             logger_factory=structlog.stdlib.LoggerFactory(),
         )
 
-    # Set root logger level
     logging.basicConfig(level=getattr(logging, settings.log_level.upper()))
