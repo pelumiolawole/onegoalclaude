@@ -33,6 +33,12 @@ Context structure:
 
         # Goal completion (invisible to user, surfaces in coach prompt)
         goal_completion_context: str,  # "" when normal, instruction text when approaching completion
+
+        # Commitment gate — written by user at activation
+        user_commitment: str,  # "" if not recorded
+
+        # Raw interview excerpts — what the user actually said before synthesis
+        raw_interview_excerpts: [str],
     }
 """
 
@@ -106,6 +112,9 @@ class ContextBuilder:
         # Goal completion context — populates {goal_completion_context} in coach prompt.
         # Empty string for normal users. Instruction text when approaching_completion is flagged.
         context = await self._enrich_with_goal_completion_context(context, uid, db)
+
+        # Raw interview excerpts — most substantive things the user said before synthesis
+        context = await self._enrich_with_interview_excerpts(context, uid, db)
 
         # Cache for 5 minutes
         await cache_user_context(uid, context)
@@ -374,7 +383,6 @@ class ContextBuilder:
         The goal status check is done directly against the goals table, not just
         interventions, so it stays accurate even if interventions are manually cleared.
         """
-        # Check if user's goal is in approaching_completion state
         goal_result = await db.execute(
             text("""
                 SELECT
@@ -394,14 +402,12 @@ class ContextBuilder:
         goal_row = goal_result.fetchone()
 
         if not goal_row:
-            # Goal is not approaching completion — no change to coach prompt
             context["goal_completion_context"] = ""
             return context
 
         subscription_plan = (goal_row.subscription_plan or "spark").lower()
         days_since_flag = round(float(goal_row.days_since_flag or 0), 0)
 
-        # Pull the most recent completion intervention message for context
         intervention_result = await db.execute(
             text("""
                 SELECT intervention_type, message
@@ -415,13 +421,11 @@ class ContextBuilder:
         )
         interventions = {row[0]: row[1] for row in intervention_result.fetchall()}
 
-        # Build the completion context string for the prompt
         completion_lines = []
 
         if "goal_approaching_completion" in interventions:
             completion_lines.append(interventions["goal_approaching_completion"])
 
-        # Add re-interview offer for Identity tier
         if subscription_plan == "identity" and "reinterview_available" in interventions:
             completion_lines.append("")
             completion_lines.append(interventions["reinterview_available"])
@@ -435,6 +439,40 @@ class ContextBuilder:
             is_identity_tier=(subscription_plan == "identity"),
         )
 
+        return context
+
+    async def _enrich_with_interview_excerpts(
+        self, context: dict, user_id: str, db: AsyncSession
+    ) -> dict:
+        """
+        Pull the most substantive user messages from the discovery interview.
+        These are the moments where the user was most honest and unguarded —
+        before synthesis cleaned up their language into profile fields.
+
+        Coach PO receives these as raw_interview_excerpts so it can reference
+        specific things the user said, not just what the system extracted.
+        """
+        result = await db.execute(
+            text("""
+                SELECT jsonb_array_elements(messages) AS msg
+                FROM onboarding_interview_state
+                WHERE user_id = CAST(:user_id AS uuid)
+            """),
+            {"user_id": user_id},
+        )
+        rows = result.fetchall()
+
+        user_messages = []
+        for row in rows:
+            msg = row[0]
+            if isinstance(msg, dict) and msg.get("role") == "user":
+                content = (msg.get("content") or "").strip()
+                if len(content) > 40:
+                    user_messages.append(content)
+
+        # Sort by length descending — longer answers tend to be more substantive
+        user_messages.sort(key=len, reverse=True)
+        context["raw_interview_excerpts"] = user_messages[:5]
         return context
 
     def _format_time_away(self, days: float | None) -> str:
@@ -518,7 +556,6 @@ class ContextBuilder:
             f"Goal: {goal.get('statement', 'not set')}",
             f"Why it matters: {goal.get('why', 'not stated')}",
             f"Commitment (in their own words): {context.get('user_commitment', 'not recorded')}",
-            f"Commitment (in their own words): {context.get('user_commitment', 'not recorded')}",
             f"Required identity: {goal.get('required_identity', 'not defined')}",
             f"Progress: {goal.get('progress_pct', 0):.0f}% | Weeks active: {goal.get('weeks_active', 0)}",
             f"",
@@ -577,6 +614,17 @@ class ContextBuilder:
                 f"RECENT COACH CONVERSATION THEMES",
                 f"  {', '.join(context['recent_coach_themes'])}",
             ]
+
+        excerpts = context.get("raw_interview_excerpts", [])
+        if excerpts:
+            lines += [
+                f"",
+                f"DISCOVERY INTERVIEW — WHAT THEY ACTUALLY SAID",
+                f"These are the user's own words from their onboarding interview.",
+                f"Use these to understand who they are beneath the synthesized profile.",
+            ]
+            for i, excerpt in enumerate(excerpts, 1):
+                lines += [f"  {i}. \"{excerpt[:200]}{'...' if len(excerpt) > 200 else ''}\""]
 
         needs_intervention = (retention or {}).get("needs_intervention", False)
         if needs_intervention:
