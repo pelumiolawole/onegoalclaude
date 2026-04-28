@@ -15,6 +15,7 @@ from core.config import settings
 
 logger = structlog.get_logger()
 
+
 class EmailService:
     def __init__(self):
         self.api_key = settings.resend_api_key
@@ -330,7 +331,7 @@ class EmailService:
             logger.error("reengagement_email_failed", email=to_email, error=str(e))
             return False
 
-# ─── Weekly Digest Email ─────────────────────────────────────────────────
+    # ─── Weekly Digest Email ─────────────────────────────────────────────────
 
     async def send_weekly_digest_email(
         self,
@@ -354,7 +355,6 @@ class EmailService:
         name = display_name or "there"
         dashboard_url = f"{app_url}/dashboard"
 
-        # Convert newlines in the letter to HTML paragraphs
         letter_paragraphs = "".join(
             f'<p style="margin: 0 0 16px 0; font-size: 15px; color: #A09690; line-height: 1.7;">{line}</p>'
             for line in review_letter.split("\n")
@@ -453,7 +453,7 @@ class EmailService:
         except Exception as e:
             logger.error("weekly_digest_email_failed", email=to_email, error=str(e))
             return False
-        
+
     # ─── Welcome Email ───────────────────────────────────────────────────────
 
     async def send_welcome_email(self, to_email: str, display_name: Optional[str]) -> bool:
@@ -713,10 +713,49 @@ class EmailService:
             logger.error("password_reset_email_failed", email=to_email, error=str(e))
             return False
 
+    # ─── Activation Alert (internal) ─────────────────────────────────────────
 
-# Singleton instance
+    async def send_activation_alert(
+        self,
+        display_name: Optional[str],
+        user_email: str,
+        commitment_statement: Optional[str],
+    ) -> bool:
+        """
+        Internal alert sent to Pelumi when a user activates.
+        Plain text. Subject includes name and email for quick identification.
+        Body includes commitment statement so the follow-up email can reference it.
+        """
+        if not self.enabled:
+            return False
+
+        first_name = (display_name or user_email).split()[0].capitalize()
+        commitment_line = (
+            f"\n\nWhat they wrote:\n{commitment_statement}"
+            if commitment_statement
+            else "\n\nNo commitment statement written."
+        )
+
+        try:
+            resend.Emails.send({
+                "from": self.from_header,
+                "to": "olawolepelumisunday@gmail.com",
+                "subject": f"New activation: {display_name or 'Unknown'} — {user_email}",
+                "text": f"{first_name} just activated on OneGoal Pro.{commitment_line}\n\nReply to them at: {user_email}",
+            })
+            logger.info("activation_alert_sent", user_email=user_email)
+            return True
+        except Exception as e:
+            logger.error("activation_alert_failed", user_email=user_email, error=str(e))
+            return False
+
+
+# ─── Singleton instance ───────────────────────────────────────────────────────
+
 email_service = EmailService()
 
+
+# ─── Standalone functions (not part of EmailService) ─────────────────────────
 
 async def send_interview_nudge_email(
     to_email: str,

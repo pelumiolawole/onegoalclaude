@@ -644,6 +644,17 @@ async def activate_account(
         tasks_generated=len(initial_tasks),
     )
 
+    # Internal activation alert — fire and forget, never block the response
+    try:
+        from services.email import email_service
+        await email_service.send_activation_alert(
+            display_name=current_user.display_name,
+            user_email=current_user.email,
+            commitment_statement=payload.commitment_statement,
+        )
+    except Exception:
+        pass
+
     return {
         "status": "active",
         "message": "Your transformation begins today.",
