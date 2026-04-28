@@ -61,6 +61,9 @@ class IdentityProfile(Base):
     profile_version: Mapped[int] = mapped_column(Integer, default=1)
     last_ai_update: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
+    # ── Commitment Gate ───────────────────────────────────────────────
+    commitment_statement: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

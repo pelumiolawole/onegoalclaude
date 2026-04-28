@@ -55,6 +55,9 @@ task_generator = TaskGeneratorEngine()
 
 # ─── Schemas ──────────────────────────────────────────────────────────────────
 
+class ActivateRequest(BaseModel):
+    commitment_statement: str | None = Field(default=None, max_length=2000)
+
 class InterviewMessageRequest(BaseModel):
     message: str = Field(min_length=1, max_length=4000)
 
@@ -568,6 +571,7 @@ async def confirm_goal(
     summary="Activate account and generate first tasks",
 )
 async def activate_account(
+    payload: ActivateRequest = ActivateRequest(),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -621,6 +625,18 @@ async def activate_account(
     )
 
     await invalidate_user_context(str(current_user.id))
+
+    if payload.commitment_statement:
+        await db.execute(
+            text("""
+                UPDATE identity_profiles
+                SET commitment_statement = :statement,
+                    updated_at = NOW()
+                WHERE user_id = CAST(:user_id AS uuid)
+            """),
+            {"statement": payload.commitment_statement, "user_id": str(current_user.id)},
+        )
+        await db.commit()
 
     logger.info(
         "user_activated",

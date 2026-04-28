@@ -297,8 +297,11 @@ class ApiClient {
     confirmGoal: () =>
       this.request<{ status: string }>('/onboarding/goal/confirm', { method: 'POST' }),
 
-    activate: () =>
-      this.request<{ status: string; message: string; tasks_generated: number }>('/onboarding/activate', { method: 'POST' }),
+    activate: (payload?: { commitment_statement?: string }) =>
+      this.request<{ status: string; message: string; tasks_generated: number }>('/onboarding/activate', {
+        method: 'POST',
+        body: JSON.stringify(payload ?? {}),
+      }),
 
     // Re-interview: Identity tier only, goal must be approaching_completion
     startReinterview: () =>

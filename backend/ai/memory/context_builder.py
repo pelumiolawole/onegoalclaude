@@ -81,6 +81,19 @@ class ContextBuilder:
         if not context:
             raise ValueError(f"No context found for user {uid}")
 
+        # Commitment statement — written by user at activation
+        commitment_result = await db.execute(
+            text("""
+                SELECT commitment_statement
+                FROM identity_profiles
+                WHERE user_id = CAST(:user_id AS uuid)
+            """),
+            {"user_id": uid},
+        )
+        commitment_row = commitment_result.fetchone()
+        if commitment_row and commitment_row[0]:
+            context["user_commitment"] = commitment_row[0]
+
         # Enrich with recent coach themes (not in the SQL function)
         context = await self._enrich_with_coach_themes(context, uid, db)
 
@@ -504,6 +517,8 @@ class ContextBuilder:
             f"CURRENT GOAL",
             f"Goal: {goal.get('statement', 'not set')}",
             f"Why it matters: {goal.get('why', 'not stated')}",
+            f"Commitment (in their own words): {context.get('user_commitment', 'not recorded')}",
+            f"Commitment (in their own words): {context.get('user_commitment', 'not recorded')}",
             f"Required identity: {goal.get('required_identity', 'not defined')}",
             f"Progress: {goal.get('progress_pct', 0):.0f}% | Weeks active: {goal.get('weeks_active', 0)}",
             f"",

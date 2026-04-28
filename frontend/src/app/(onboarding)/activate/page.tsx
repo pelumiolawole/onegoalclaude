@@ -10,13 +10,14 @@ export default function ActivatePage() {
   const router = useRouter()
   const { refreshUser } = useAuthStore()
   const [activating, setActivating] = useState(false)
-  const [done, setDone]             = useState(false)
+  const [done, setDone] = useState(false)
+  const [commitmentStatement, setCommitmentStatement] = useState('')
 
   async function handleActivate() {
     if (activating) return
     setActivating(true)
     try {
-      await api.onboarding.activate()
+      await api.onboarding.activate({ commitment_statement: commitmentStatement })
       setDone(true)
       await refreshUser()
       setTimeout(() => router.push('/dashboard'), 2000)
@@ -60,6 +61,8 @@ export default function ActivatePage() {
     )
   }
 
+  const isReady = commitmentStatement.trim().length >= 30
+
   return (
     <div className="max-w-lg mx-auto w-full text-center">
       <motion.div
@@ -77,55 +80,40 @@ export default function ActivatePage() {
         </motion.div>
 
         <h1 className="font-display text-5xl text-[#F5F1ED] mb-6 leading-tight">
-          Ready to begin?
+          Before you begin.
         </h1>
 
-        <p className="text-[#A09690] text-lg leading-relaxed mb-4">
-          Your strategy is set. Your first task will be ready tomorrow morning.
-        </p>
-        <p className="text-[#7A6E65] leading-relaxed mb-12">
-          Every day: one task, one reflection, and your coach. That's the whole system.
-          Small and consistent beats big and occasional every time.
+        <p className="text-[#A09690] text-lg leading-relaxed mb-12">
+          You've found your goal. The work starts here — not with tasks or streaks, but with a decision.
         </p>
 
-        {/* Commitments */}
-        <div className="space-y-3 mb-12 text-left">
-          {COMMITMENTS.map((c, i) => (
-            <motion.div
-              key={c}
-              initial={{ opacity: 0, x: -12 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 + i * 0.1 }}
-              className="flex items-start gap-3 px-4 py-3 bg-[#141210] border border-white/5 rounded-xl"
-            >
-              <span className="text-[#F59E0B] mt-0.5">✓</span>
-              <span className="text-[#C4BBB5] text-sm">{c}</span>
-            </motion.div>
-          ))}
-        </div>
+        <textarea
+          value={commitmentStatement}
+          onChange={(e) => setCommitmentStatement(e.target.value)}
+          placeholder="In your own words, write why this goal matters to you right now."
+          rows={5}
+          className="w-full bg-[#141210] border border-white/10 rounded-2xl px-5 py-4 text-[#F5F1ED] placeholder:text-[#3D3630] text-base leading-relaxed resize-none focus:outline-none focus:border-[#F59E0B]/40 mb-8"
+        />
 
         <button
           onClick={handleActivate}
-          disabled={activating}
-          className="btn btn-primary w-full h-14 text-lg"
+          disabled={!isReady || activating}
+          className={`w-full h-14 text-lg rounded-2xl font-semibold transition-all ${
+            isReady && !activating
+              ? 'bg-[#F59E0B] text-[#0A0908] hover:bg-[#D97706]'
+              : 'bg-[#1E1B18] text-[#3D3630] cursor-not-allowed'
+          }`}
         >
           {activating ? (
             <span className="flex items-center gap-2 justify-center">
-              <span className="w-5 h-5 border-2 border-[#0A0908]/30 border-t-[#0A0908] rounded-full animate-spin" />
+              <span className="w-5 h-5 border-2 border-[#3D3630]/30 border-t-[#3D3630] rounded-full animate-spin" />
               Setting things up…
             </span>
           ) : (
-            'Begin my transformation'
+            "I'm ready. Begin."
           )}
         </button>
       </motion.div>
     </div>
   )
 }
-
-const COMMITMENTS = [
-  'One daily task — built around who you need to become, not just what you need to do',
-  'Daily reflection to track what\'s working and what isn\'t',
-  'A coach that knows your goal, your history, and your current objective',
-  'A weekly review showing your patterns and adjusting what comes next',
-]
