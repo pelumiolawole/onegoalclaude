@@ -104,8 +104,18 @@ async def get_coach_greeting(
             "greeting": str,
         }
     """
+    from datetime import datetime
+
     uid = str(current_user.id)
     first_name = (current_user.display_name or "").split()[0] or "there"
+
+    hour = datetime.utcnow().hour
+    if hour < 12:
+        time_greeting = "Good morning"
+    elif hour < 17:
+        time_greeting = "Good afternoon"
+    else:
+        time_greeting = "Good evening"
 
     # Fetch today's task for this user
     result = await db.execute(
@@ -129,7 +139,7 @@ async def get_coach_greeting(
             "task_title": None,
             "guidance": None,
             "greeting": (
-                f"Good morning {first_name}, your task for today is being prepared. "
+                f"{time_greeting} {first_name}, your task for today is being prepared. "
                 "While you wait, what's on your mind?"
             ),
         }
@@ -144,7 +154,7 @@ async def get_coach_greeting(
         guidance_line = ""
 
     greeting = (
-        f"Good morning {first_name}. Your task today is: {task_title}.{guidance_line}"
+        f"{time_greeting} {first_name}. Your task today is: {task_title}.{guidance_line}"
         f"\n\nHow can I help you with today's task, or is there something else on your mind?"
     )
 
