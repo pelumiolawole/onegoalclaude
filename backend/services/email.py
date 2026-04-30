@@ -331,6 +331,120 @@ class EmailService:
             logger.error("reengagement_email_failed", email=to_email, error=str(e))
             return False
 
+    # ─── Activation Reengagement Email ───────────────────────────────────────
+
+    async def send_activation_reengagement_email(
+        self,
+        to_email: str,
+        display_name: Optional[str],
+        commitment_statement: Optional[str],
+        task_title: Optional[str],
+        app_url: str,
+    ) -> bool:
+        """
+        Sent once, 48h after activation, to users who have not completed a single task.
+        References their commitment statement. Plain, personal tone.
+        """
+        if not self.enabled:
+            return False
+
+        first_name = (display_name or to_email).split()[0].capitalize()
+        dashboard_url = f"{app_url}/dashboard"
+
+        commitment_block = ""
+        if commitment_statement:
+            commitment_block = f"""
+            <p style="margin: 0 0 24px 0; padding: 20px; background-color: #1E1B18; border-left: 3px solid #F59E0B; border-radius: 0 8px 8px 0; font-size: 15px; color: #F5F1ED; line-height: 1.6; font-style: italic;">
+                "{commitment_statement}"
+            </p>
+            """
+
+        task_block = ""
+        if task_title:
+            task_block = f"""
+            <p style="margin: 0 0 8px 0; font-size: 13px; color: #5C524A; letter-spacing: 0.08em; text-transform: uppercase;">Your first task</p>
+            <p style="margin: 0 0 28px 0; font-size: 16px; color: #F5F1ED; font-weight: 600;">{task_title}</p>
+            """
+
+        try:
+            response = resend.Emails.send({
+                "from": self.from_header,
+                "to": to_email,
+                "subject": first_name,
+                "html": f"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                </head>
+                <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #0A0908;">
+                    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #0A0908; padding: 40px 0;">
+                        <tr>
+                            <td align="center">
+                                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #141210; border-radius: 12px; overflow: hidden; max-width: 600px; width: 100%; border: 1px solid #2A2520;">
+                                    <tr>
+                                        <td style="padding: 8px 40px; background-color: #F59E0B;">
+                                            <p style="margin: 0; font-size: 13px; font-weight: 600; color: #0A0908; letter-spacing: 0.1em; text-transform: uppercase;">OneGoal Pro</p>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 40px;">
+                                            <p style="margin: 0 0 20px 0; font-size: 16px; color: #7A6E65; line-height: 1.6;">
+                                                {first_name},
+                                            </p>
+
+                                            <p style="margin: 0 0 24px 0; font-size: 16px; color: #A09690; line-height: 1.6;">
+                                                When you set up your goal, you wrote this:
+                                            </p>
+
+                                            {commitment_block}
+
+                                            <p style="margin: 0 0 24px 0; font-size: 16px; color: #A09690; line-height: 1.6;">
+                                                That's still true. Your first task is still waiting.
+                                            </p>
+
+                                            {task_block}
+
+                                            <table width="100%" cellpadding="0" cellspacing="0" style="margin: 0 0 28px 0;">
+                                                <tr>
+                                                    <td align="center">
+                                                        <a href="{dashboard_url}" style="display: inline-block; padding: 14px 36px; background-color: #F59E0B; color: #0A0908; text-decoration: none; border-radius: 8px; font-size: 15px; font-weight: 600;">
+                                                            One thing. Start here →
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                            </table>
+
+                                            <p style="margin: 0; font-size: 15px; color: #5C524A; line-height: 1.6;">
+                                                Pelumi
+                                            </p>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 20px 40px; border-top: 1px solid #2A2520;">
+                                            <p style="margin: 0; font-size: 12px; color: #3D3630;">
+                                                One goal. Full commitment. No excuses. —
+                                                <a href="{dashboard_url}" style="color: #5C524A; text-decoration: none;">onegoalpro.app</a>
+                                            </p>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </body>
+                </html>
+                """,
+            })
+
+            logger.info("activation_reengagement_email_sent", email=to_email, message_id=response.get("id"))
+            return True
+
+        except Exception as e:
+            logger.error("activation_reengagement_email_failed", email=to_email, error=str(e))
+            return False
+
     # ─── Weekly Digest Email ─────────────────────────────────────────────────
 
     async def send_weekly_digest_email(

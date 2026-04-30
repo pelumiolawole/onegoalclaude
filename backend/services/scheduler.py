@@ -47,7 +47,7 @@ async def start_scheduler() -> AsyncIOScheduler:
     scheduler.add_job(func=run_weekly_review_generation, trigger=CronTrigger(day_of_week="mon", hour=2, minute=0),
         id="weekly_review", name="Generate weekly evolution reviews",
         replace_existing=True, max_instances=1, misfire_grace_time=7200)
-    
+
     scheduler.add_job(func=_weekly_digest_wrapper, trigger=CronTrigger(day_of_week="mon", hour=6, minute=0),
         id="weekly_digest_emails", name="Send weekly digest emails to active users",
         replace_existing=True, max_instances=1, misfire_grace_time=3600)
@@ -76,6 +76,10 @@ async def start_scheduler() -> AsyncIOScheduler:
 
     scheduler.add_job(func=run_reengagement_emails, trigger=CronTrigger(hour=9, minute=0),
         id="reengagement_emails", name="Send re-engagement emails to inactive users",
+        replace_existing=True, max_instances=1, misfire_grace_time=3600)
+
+    scheduler.add_job(func=run_activation_reengagement, trigger=CronTrigger(hour=9, minute=30),
+        id="activation_reengagement", name="48h activation reengagement — users who never completed a task",
         replace_existing=True, max_instances=1, misfire_grace_time=3600)
 
     scheduler.add_job(func=run_daily_push_notifications, trigger=CronTrigger(hour=8, minute=0),
@@ -440,6 +444,92 @@ async def run_reengagement_emails() -> None:
 
     finally:
         await release_lock("reengagement_emails")
+
+
+async def run_activation_reengagement() -> None:
+    """
+    Runs daily at 9:30am UTC.
+    Targets users who activated 48+ hours ago but have never completed a task.
+    Sends one email referencing their commitment statement.
+    Throttled: sends once only per user via activation_reengagement_sent_at on identity_profiles.
+    """
+    from core.cache import acquire_lock, release_lock
+    from core.database import get_db_context
+    from services.email import email_service
+
+    lock_acquired = await acquire_lock("activation_reengagement", ttl_seconds=3600)
+    if not lock_acquired:
+        return
+
+    try:
+        async with get_db_context() as db:
+            from sqlalchemy import text
+            result = await db.execute(text("""
+                SELECT
+                    u.id,
+                    u.email,
+                    u.display_name,
+                    ip.commitment_statement,
+                    dt.title AS task_title
+                FROM users u
+                JOIN goals g ON g.user_id = u.id
+                    AND g.status IN ('active', 'approaching_completion')
+                JOIN identity_profiles ip ON ip.user_id = u.id
+                LEFT JOIN daily_tasks dt ON dt.user_id = u.id
+                    AND dt.scheduled_date = CURRENT_DATE
+                    AND dt.status = 'pending'
+                WHERE u.is_active = TRUE
+                  AND u.onboarding_status = 'active'
+                  AND g.started_at <= NOW() - INTERVAL '48 hours'
+                  AND ip.activation_reengagement_sent_at IS NULL
+                  AND NOT EXISTS (
+                    SELECT 1 FROM daily_tasks completed
+                    WHERE completed.user_id = u.id
+                      AND completed.status = 'completed'
+                  )
+            """))
+            users = result.fetchall()
+
+        if not users:
+            logger.info("activation_reengagement_no_users")
+            return
+
+        logger.info("activation_reengagement_started", user_count=len(users))
+        sent_count = 0
+
+        for row in users:
+            user_id = str(row[0])
+            email = row[1]
+            display_name = row[2]
+            commitment_statement = row[3]
+            task_title = row[4]
+
+            try:
+                sent = await email_service.send_activation_reengagement_email(
+                    to_email=email,
+                    display_name=display_name,
+                    commitment_statement=commitment_statement,
+                    task_title=task_title,
+                    app_url=settings.frontend_url,
+                )
+                if sent:
+                    async with get_db_context() as db2:
+                        from sqlalchemy import text as t
+                        await db2.execute(t("""
+                            UPDATE identity_profiles
+                            SET activation_reengagement_sent_at = NOW()
+                            WHERE user_id = CAST(:user_id AS uuid)
+                        """), {"user_id": user_id})
+                        await db2.commit()
+                    sent_count += 1
+                    logger.info("activation_reengagement_sent", user_id=user_id)
+            except Exception as e:
+                logger.error("activation_reengagement_failed", user_id=user_id, error=str(e))
+
+        logger.info("activation_reengagement_complete", sent=sent_count, total=len(users))
+
+    finally:
+        await release_lock("activation_reengagement")
 
 
 async def send_verification_reminders() -> None:
@@ -854,6 +944,7 @@ async def run_interview_nudge(hours_since_signup: int) -> None:
             except Exception as e:
                 logger.warning("interview_nudge_push_failed", user_id=str(user.id), error=str(e))
 
+
 async def run_weekly_digest_emails() -> None:
     """
     Runs every Monday at 6am UTC — after weekly review generation (2am).
@@ -924,7 +1015,6 @@ async def run_weekly_digest_emails() -> None:
             transformation_score = float(row[6] or 0)
             tasks_completed = int(row[7] or 0)
 
-            # Format week label e.g. "Week of 7 April"
             week_label = week_start.strftime("Week of %-d %B") if week_start else "This week"
 
             try:
