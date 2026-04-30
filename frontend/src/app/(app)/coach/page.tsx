@@ -106,20 +106,54 @@ export default function CoachPage() {
   const msgId = useRef(0)
   const sessionTracked = useRef(false)
 
-  // Load active session
+  // Load active session, then inject greeting if it's a new session
   useEffect(() => {
-    api.coach.getActiveSession()
-      .then(res => {
+    let cancelled = false
+
+    async function init() {
+      try {
+        const res = await api.coach.getActiveSession()
+        if (cancelled) return
+
         setSessionId(res.session_id)
-        setMessages(res.messages.map((m: any) => ({
-          id: String(msgId.current++),
-          role: m.role,
-          content: m.content,
-          created_at: m.created_at,
-        })))
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+
+        // Session already has messages — restore them and don't inject greeting
+        if (res.messages && res.messages.length > 0) {
+          setMessages(res.messages.map((m: any) => ({
+            id: String(msgId.current++),
+            role: m.role,
+            content: m.content,
+            created_at: m.created_at,
+          })))
+          return
+        }
+
+        // New session — fetch greeting and inject as opening assistant message
+        if (res.is_new_session) {
+          try {
+            const greetingRes = await api.coach.getGreeting()
+            if (cancelled) return
+            if (greetingRes?.greeting) {
+              setMessages([{
+                id: String(msgId.current++),
+                role: 'assistant',
+                content: greetingRes.greeting,
+                created_at: new Date().toISOString(),
+              }])
+            }
+          } catch {
+            // Greeting fetch failed — fall through to empty state, not a hard error
+          }
+        }
+      } catch {
+        // Session fetch failed — loading will clear and empty state shows
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    init()
+    return () => { cancelled = true }
   }, [])
 
   useEffect(() => {
@@ -153,7 +187,6 @@ export default function CoachPage() {
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let fullText = ''
-      // Track whether the current line follows an 'event: system' marker
       let nextLineIsSystemEvent = false
 
       while (true) {
@@ -169,14 +202,12 @@ export default function CoachPage() {
             continue
           }
 
-          // Mark that the next data: line is a system event
           if (line.startsWith('event: system')) {
             nextLineIsSystemEvent = true
             continue
           }
 
           if (line.startsWith('data: ')) {
-            // FIX: do NOT trim() — spaces at the start of tokens are meaningful
             const data = line.slice(6)
 
             if (data === '[DONE]' || data.startsWith('[ERROR]')) {
@@ -184,7 +215,6 @@ export default function CoachPage() {
               break
             }
 
-            // If flagged as system event OR data looks like JSON, try to parse it
             if (nextLineIsSystemEvent || data.trimStart().startsWith('{')) {
               try {
                 const parsed = JSON.parse(data.trim())
@@ -200,7 +230,6 @@ export default function CoachPage() {
 
             nextLineIsSystemEvent = false
 
-            // Regular chat text — preserve spaces, unescape newlines
             fullText += data.replace(/\\n/g, '\n')
             setMessages(prev =>
               prev.map(m => m.id === aiId ? { ...m, content: fullText } : m)
@@ -209,7 +238,6 @@ export default function CoachPage() {
         }
       }
 
-      // Mark streaming done
       setMessages(prev =>
         prev.map(m => m.id === aiId ? { ...m, streaming: false } : m)
       )
@@ -241,7 +269,6 @@ export default function CoachPage() {
 
   const name = user?.display_name?.split(' ')[0] || 'you'
 
-  // Don't show if dismissed
   const showWarning = quotaWarning && !dismissedWarnings.has(quotaWarning.message)
 
   return (
@@ -268,7 +295,7 @@ export default function CoachPage() {
           </div>
         )}
 
-        {/* Empty state */}
+        {/* Empty state — only shows when no messages and not loading */}
         {!loading && messages.length === 0 && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -310,7 +337,6 @@ export default function CoachPage() {
               className={`relative mb-6 overflow-hidden rounded-2xl border ${quotaConfig[quotaWarning.level].border} bg-gradient-to-r ${quotaConfig[quotaWarning.level].gradient} backdrop-blur-sm`}
             >
               <div className="relative flex items-start gap-4 p-5">
-                {/* Icon */}
                 <div className={`flex-shrink-0 rounded-xl ${quotaConfig[quotaWarning.level].iconBg} p-2.5`}>
                   {(() => {
                     const Icon = quotaConfig[quotaWarning.level].icon
@@ -318,7 +344,6 @@ export default function CoachPage() {
                   })()}
                 </div>
 
-                {/* Content */}
                 <div className="flex-1 min-w-0">
                   <h4 className={`font-semibold text-sm ${quotaConfig[quotaWarning.level].titleColor}`}>
                     {quotaWarning.message}
@@ -327,7 +352,6 @@ export default function CoachPage() {
                     {quotaWarning.subtext}
                   </p>
 
-                  {/* Usage bar */}
                   <div className="mt-4 flex items-center gap-3">
                     <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
                       <motion.div
@@ -348,7 +372,6 @@ export default function CoachPage() {
                   </div>
                 </div>
 
-                {/* Actions */}
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => window.location.href = quotaWarning.action.link}
@@ -383,33 +406,33 @@ export default function CoachPage() {
                   <DateSeparator label={formatDateLabel(msg.created_at!)} />
                 )}
                 <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              {msg.role === 'assistant' && (
-                <div className="w-7 h-7 rounded-full bg-[#F59E0B]/15 border border-[#F59E0B]/20 flex items-center justify-center mr-2.5 mt-0.5 shrink-0">
-                  <span className="text-[#F59E0B] text-[10px]">✦</span>
-                </div>
-              )}
-              <div
-                className={`max-w-[82%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
-                  msg.role === 'user'
-                    ? 'bg-[#F59E0B]/10 border border-[#F59E0B]/15 text-[#E8E2DC] rounded-tr-sm'
-                    : 'bg-[#1E1B18] border border-white/5 text-[#C4BBB5] rounded-tl-sm'
-                }`}
-              >
-                {msg.content || (msg.streaming ? <TypingDots /> : '')}
-                {msg.streaming && msg.content && (
-                  <motion.span
-                    animate={{ opacity: [1, 0] }}
-                    transition={{ duration: 0.5, repeat: Infinity }}
-                    className="inline-block w-0.5 h-3.5 bg-[#F59E0B] ml-0.5 align-middle"
-                  />
-                )}
-              </div>
-            </motion.div>
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  {msg.role === 'assistant' && (
+                    <div className="w-7 h-7 rounded-full bg-[#F59E0B]/15 border border-[#F59E0B]/20 flex items-center justify-center mr-2.5 mt-0.5 shrink-0">
+                      <span className="text-[#F59E0B] text-[10px]">✦</span>
+                    </div>
+                  )}
+                  <div
+                    className={`max-w-[82%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                      msg.role === 'user'
+                        ? 'bg-[#F59E0B]/10 border border-[#F59E0B]/15 text-[#E8E2DC] rounded-tr-sm'
+                        : 'bg-[#1E1B18] border border-white/5 text-[#C4BBB5] rounded-tl-sm'
+                    }`}
+                  >
+                    {msg.content || (msg.streaming ? <TypingDots /> : '')}
+                    {msg.streaming && msg.content && (
+                      <motion.span
+                        animate={{ opacity: [1, 0] }}
+                        transition={{ duration: 0.5, repeat: Infinity }}
+                        className="inline-block w-0.5 h-3.5 bg-[#F59E0B] ml-0.5 align-middle"
+                      />
+                    )}
+                  </div>
+                </motion.div>
               </React.Fragment>
             )
           })}

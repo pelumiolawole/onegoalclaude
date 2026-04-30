@@ -37,6 +37,7 @@ class TaskGeneratorEngine(BaseAIEngine):
             "description": "Spend 15 minutes on one action that reinforces who you're becoming. No perfection required—just presence.",
             "identity_focus": "Today you are someone who shows up, even when it's hard.",
             "execution_guidance": "Set a timer for 15 minutes. Work on one small thing related to your goal. When the timer ends, you're done.",
+            "guidance": "Pick one specific action connected to your goal — not planning it, doing it. Set a timer for 15 minutes. Start before you feel ready. Stop when it ends.",
             "time_estimate_minutes": 15,
             "difficulty_level": 3,
             "task_type": "identity_anchor",
@@ -46,6 +47,7 @@ class TaskGeneratorEngine(BaseAIEngine):
             "description": "Do the smallest possible version of your goal-related action. Consistency beats intensity.",
             "identity_focus": "Today you are someone who chooses consistency over perfection.",
             "execution_guidance": "Identify the absolute minimum action that still moves you forward. Do only that. Celebrate completion.",
+            "guidance": "Write down the single smallest action that still counts as forward movement. Not the plan — the action. Do it now. That's the whole task.",
             "time_estimate_minutes": 10,
             "difficulty_level": 2,
             "task_type": "micro_action",
@@ -55,6 +57,7 @@ class TaskGeneratorEngine(BaseAIEngine):
             "description": "Take one small step toward your goal, then pause to notice how it felt.",
             "identity_focus": "Today you are someone who learns by doing, not just planning.",
             "execution_guidance": "Spend 10 minutes on your goal. Then write one sentence about what you noticed.",
+            "guidance": "Do 10 minutes of actual work on your goal — not thinking about it, doing it. Immediately after, write one honest sentence: what did you notice about yourself while you were doing it?",
             "time_estimate_minutes": 15,
             "difficulty_level": 3,
             "task_type": "becoming",
@@ -78,10 +81,10 @@ class TaskGeneratorEngine(BaseAIEngine):
 
         async def _run(db: AsyncSession):
             nonlocal tasks_generated
-            
+
             # Get dates that need tasks (today + missed days)
             dates_needed = await self._get_missed_task_dates(uid, today, db)
-            
+
             # Limit to max 3 tasks (today + up to 2 missed)
             if len(dates_needed) > 3:
                 # Keep only the most recent 3
@@ -125,7 +128,7 @@ class TaskGeneratorEngine(BaseAIEngine):
 
             # Check if intervention needed (3 missed tasks)
             await self._trigger_intervention_if_needed(uid, db)
-            
+
             return tasks_generated
 
         if db:
@@ -144,14 +147,12 @@ class TaskGeneratorEngine(BaseAIEngine):
         Find dates from last 3 days that don't have tasks.
         Returns list of dates that need tasks generated.
         """
-        from sqlalchemy import text
-        
         # Check last 3 days + today
         check_dates = [today - timedelta(days=i) for i in range(3, -1, -1)]
-        
+
         result = await db.execute(
             text("""
-                SELECT scheduled_date 
+                SELECT scheduled_date
                 FROM daily_tasks
                 WHERE user_id = :user_id
                   AND scheduled_date >= :start_date
@@ -165,7 +166,7 @@ class TaskGeneratorEngine(BaseAIEngine):
             },
         )
         existing_dates = {row[0] for row in result.fetchall()}
-        
+
         # Return dates that don't have tasks
         missing_dates = [d for d in check_dates if d not in existing_dates]
         return missing_dates
@@ -179,12 +180,10 @@ class TaskGeneratorEngine(BaseAIEngine):
         Check if user has 3+ missed tasks and trigger intervention.
         Creates a coach intervention message.
         """
-        from sqlalchemy import text
-        
         # Count missed tasks (pending tasks from past dates)
         result = await db.execute(
             text("""
-                SELECT COUNT(*) 
+                SELECT COUNT(*)
                 FROM daily_tasks
                 WHERE user_id = :user_id
                   AND scheduled_date < CURRENT_DATE
@@ -194,7 +193,7 @@ class TaskGeneratorEngine(BaseAIEngine):
             {"user_id": user_id},
         )
         missed_count = result.scalar() or 0
-        
+
         if missed_count >= 3:
             # Check if intervention already exists for this reason
             existing = await db.execute(
@@ -207,14 +206,14 @@ class TaskGeneratorEngine(BaseAIEngine):
                 """),
                 {"user_id": user_id},
             )
-            
+
             if not existing.fetchone():
                 # Create intervention
                 await db.execute(
                     text("""
-                        INSERT INTO coach_interventions 
+                        INSERT INTO coach_interventions
                         (user_id, intervention_type, message, urgency)
-                        VALUES 
+                        VALUES
                         (:user_id, 'backlog_crisis', :message, 'high')
                     """),
                     {
@@ -223,7 +222,7 @@ class TaskGeneratorEngine(BaseAIEngine):
                     }
                 )
                 await db.commit()
-                
+
                 logger.info(
                     "backlog_intervention_triggered",
                     user_id=user_id,
@@ -237,23 +236,21 @@ class TaskGeneratorEngine(BaseAIEngine):
         db: AsyncSession,
     ) -> None:
         """Create a template fallback task when AI generation fails."""
-        from sqlalchemy import text
-        
         # Rotate through fallback tasks based on date
         fallback_index = task_date.day % len(self.FALLBACK_TASKS)
         fallback = self.FALLBACK_TASKS[fallback_index]
-        
+
         await db.execute(
             text("""
                 INSERT INTO daily_tasks (
                     user_id, scheduled_date, task_type,
                     identity_focus, title, description,
-                    execution_guidance, time_estimate_minutes,
+                    execution_guidance, guidance, time_estimate_minutes,
                     difficulty_level, generated_by_ai, generation_context
                 ) VALUES (
                     :user_id, :date, :task_type,
                     :identity_focus, :title, :description,
-                    :execution_guidance, :time_estimate,
+                    :execution_guidance, :guidance, :time_estimate,
                     :difficulty, FALSE, CAST(:gen_context AS jsonb)
                 )
             """),
@@ -265,6 +262,7 @@ class TaskGeneratorEngine(BaseAIEngine):
                 "title": fallback["title"],
                 "description": fallback["description"],
                 "execution_guidance": fallback["execution_guidance"],
+                "guidance": fallback["guidance"],
                 "time_estimate": fallback["time_estimate_minutes"],
                 "difficulty": fallback["difficulty_level"],
                 "gen_context": json.dumps({"fallback": True, "reason": "ai_generation_failed"}),
@@ -281,7 +279,7 @@ class TaskGeneratorEngine(BaseAIEngine):
     ) -> dict:
         """
         Generate a task for a specific user and date.
-        
+
         Args:
             is_backlog: If True, this is a missed day task (adjusts messaging)
         """
@@ -319,24 +317,24 @@ class TaskGeneratorEngine(BaseAIEngine):
                 time_available = time_avail.get("weekday", 30)
             time_available = max(15, min(120, time_available or 30))
 
-            # Get recent task titles to avoid repetition
-            recent_tasks = await self._get_recent_task_titles(uid, db)
+            # Fetch enriched history context
+            task_history_str = await self._get_task_history(uid, db)
+            reflection_history_str = await self._get_reflection_history(uid, db)
+            progress_context_str = await self._get_progress_context(context)
 
             # Build the generation prompt
             system_prompt = get_prompt("task_generator").format(
                 user_context=context_str,
                 time_available=time_available,
+                task_history=task_history_str,
+                reflection_history=reflection_history_str,
+                progress_context=progress_context_str,
             )
 
             # Adjust prompt for backlog tasks
             date_note = ""
             if is_backlog:
                 date_note = f"\n\nNOTE: This task is for {task_date.strftime('%A, %B %d')} (a missed day). Keep the tone supportive and non-judgmental. Focus on 'starting fresh' rather than 'catching up'."
-            
-            avoid_note = ""
-            if recent_tasks:
-                avoid_note = f"\n\nAvoid generating tasks similar to these recent ones:\n" + \
-                             "\n".join(f"  - {t}" for t in recent_tasks)
 
             # Build task type description
             task_type_desc = "a catch-up" if is_backlog else "tomorrow's"
@@ -347,7 +345,7 @@ class TaskGeneratorEngine(BaseAIEngine):
                         {"role": "system", "content": system_prompt},
                         {
                             "role": "user",
-                            "content": f"Generate {task_type_desc} becoming task for {task_date.strftime('%A, %B %d')}.{date_note}{avoid_note}",
+                            "content": f"Generate {task_type_desc} becoming task for {task_date.strftime('%A, %B %d')}.{date_note}",
                         },
                     ],
                     user_id=uid,
@@ -422,21 +420,109 @@ class TaskGeneratorEngine(BaseAIEngine):
 
         return tasks
 
-    async def _get_recent_task_titles(
-        self, user_id: str, db: AsyncSession, days: int = 7
-    ) -> list[str]:
-        """Get titles of tasks from the last N days to avoid repetition."""
+    async def _get_task_history(
+        self, user_id: str, db: AsyncSession, days: int = 30
+    ) -> str:
+        """
+        Fetch the last 30 days of tasks with date, title, and status.
+        Returned as a formatted string for prompt injection.
+        """
         result = await db.execute(
             text("""
-                SELECT title FROM daily_tasks
+                SELECT scheduled_date, title, status
+                FROM daily_tasks
                 WHERE user_id = :user_id
                   AND scheduled_date >= CURRENT_DATE - (:days * INTERVAL '1 day')
                 ORDER BY scheduled_date DESC
-                LIMIT 7
+                LIMIT 30
             """),
             {"user_id": user_id, "days": days},
         )
-        return [row[0] for row in result.fetchall() if row[0]]
+        rows = result.fetchall()
+
+        if not rows:
+            return "No task history yet."
+
+        lines = []
+        for row in rows:
+            task_date, title, status = row
+            lines.append(f"  {task_date} | {status} | {title}")
+
+        return "\n".join(lines)
+
+    async def _get_reflection_history(
+        self, user_id: str, db: AsyncSession, limit: int = 10
+    ) -> str:
+        """
+        Fetch the last 10 reflections with associated task title and what the user said.
+        Returned as a formatted string for prompt injection.
+        """
+        result = await db.execute(
+            text("""
+                SELECT
+                    r.created_at::date AS reflection_date,
+                    dt.title AS task_title,
+                    r.qa_pairs,
+                    r.depth_score
+                FROM reflections r
+                LEFT JOIN daily_tasks dt ON dt.user_id = r.user_id
+                    AND dt.scheduled_date = r.created_at::date
+                WHERE r.user_id = :user_id
+                ORDER BY r.created_at DESC
+                LIMIT :limit
+            """),
+            {"user_id": user_id, "limit": limit},
+        )
+        rows = result.fetchall()
+
+        if not rows:
+            return "No reflections yet."
+
+        lines = []
+        for row in rows:
+            reflection_date, task_title, qa_pairs, depth_score = row
+            task_label = task_title or "unknown task"
+
+            # Extract user responses from qa_pairs JSONB
+            user_responses = []
+            if qa_pairs:
+                pairs = qa_pairs if isinstance(qa_pairs, list) else []
+                for pair in pairs:
+                    answer = pair.get("answer") or pair.get("response") or ""
+                    if answer and len(answer) > 10:
+                        user_responses.append(answer[:120])
+
+            response_text = " / ".join(user_responses[:2]) if user_responses else "no response recorded"
+            lines.append(
+                f"  {reflection_date} | task: {task_label} | depth: {depth_score or 'n/a'} | said: \"{response_text}\""
+            )
+
+        return "\n".join(lines)
+
+    async def _get_progress_context(self, context: dict) -> str:
+        """
+        Build a short progress summary string from the already-loaded context.
+        No additional DB query needed.
+        """
+        scores = context.get("scores", {})
+        retention = context.get("retention", {})
+
+        streak = scores.get("streak", 0)
+        momentum = scores.get("momentum_state", "holding")
+        transformation = scores.get("transformation", 0)
+        consistency = scores.get("consistency", 0)
+        days_active = context.get("days_active", 0)
+        days_since_last = retention.get("days_since_last_task", 0)
+
+        lines = [
+            f"Streak: {streak} days",
+            f"Momentum: {momentum}",
+            f"Transformation score: {transformation:.1f}/100",
+            f"Consistency: {consistency:.1f}",
+            f"Days active: {days_active}",
+            f"Days since last task: {days_since_last}",
+        ]
+        return "\n".join(lines)
 
     async def _persist_task(
         self,
@@ -467,13 +553,13 @@ class TaskGeneratorEngine(BaseAIEngine):
                     user_id, goal_id, objective_id,
                     scheduled_date, task_type,
                     identity_focus, title, description,
-                    execution_guidance, time_estimate_minutes,
+                    execution_guidance, guidance, time_estimate_minutes,
                     difficulty_level, generated_by_ai, generation_context
                 ) VALUES (
                     :user_id, :goal_id, :objective_id,
                     :date, :task_type,
                     :identity_focus, :title, :description,
-                    :execution_guidance, :time_estimate,
+                    :execution_guidance, :guidance, :time_estimate,
                     :difficulty, :generated_by_ai, CAST(:gen_context AS jsonb)
                 )
                 RETURNING id
@@ -488,12 +574,14 @@ class TaskGeneratorEngine(BaseAIEngine):
                 "title": task_data.get("title", ""),
                 "description": task_data.get("description", ""),
                 "execution_guidance": task_data.get("execution_guidance", ""),
+                "guidance": task_data.get("guidance", ""),
                 "time_estimate": task_data.get("time_estimate_minutes", 30),
                 "difficulty": task_data.get("difficulty_level", 5),
                 "generated_by_ai": not task_data.get("fallback", False),
                 "gen_context": json.dumps(generation_context),
             },
         )
+        await db.commit()
         return result.scalar()
 
     async def _get_current_objective_id(self, user_id: str, db: AsyncSession):
@@ -511,4 +599,3 @@ class TaskGeneratorEngine(BaseAIEngine):
         )
         row = result.fetchone()
         return row[0] if row else None
-        

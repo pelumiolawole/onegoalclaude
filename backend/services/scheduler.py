@@ -877,7 +877,7 @@ async def run_weekly_digest_emails() -> None:
                     u.id,
                     u.email,
                     u.display_name,
-                    wr.review_letter,
+                    wr.evolution_letter,
                     wr.week_start_date,
                     ip.current_streak,
                     ip.transformation_score,
@@ -895,8 +895,8 @@ async def run_weekly_digest_emails() -> None:
                 WHERE u.is_active = TRUE
                   AND u.onboarding_status = 'active'
                   AND wr.week_start_date = date_trunc('week', CURRENT_DATE - INTERVAL '7 days')::DATE
-                  AND wr.review_letter IS NOT NULL
-                  AND LENGTH(TRIM(wr.review_letter)) > 50
+                  AND wr.evolution_letter IS NOT NULL
+                  AND LENGTH(TRIM(wr.evolution_letter)) > 50
                   AND NOT EXISTS (
                     SELECT 1 FROM notification_queue nq
                     WHERE nq.user_id = u.id

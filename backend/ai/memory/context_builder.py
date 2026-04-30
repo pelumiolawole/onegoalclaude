@@ -19,7 +19,7 @@ Context structure:
         active_objective: { title, description, progress, ... },
         traits: [{ name, current_score, target_score, gap, velocity }],
         recent_reflections: [{ date, sentiment, depth_score, themes }],
-        today_task: { identity_focus, title, status },
+        today_task: { identity_focus, title, status, guidance },
         patterns: [{ type, name, confidence }],
         retention: { streak, days_since_last_task, needs_intervention },
         recent_coach_themes: [str],
@@ -39,6 +39,10 @@ Context structure:
 
         # Raw interview excerpts — what the user actually said before synthesis
         raw_interview_excerpts: [str],
+
+        # Task and reflection history for coach context (V2)
+        task_history: [{ date, title, status }],
+        reflection_history: [{ date, task_title, summary }],
     }
 """
 
@@ -110,11 +114,14 @@ class ContextBuilder:
         context = await self._determine_coach_mode(context, uid, db)
 
         # Goal completion context — populates {goal_completion_context} in coach prompt.
-        # Empty string for normal users. Instruction text when approaching_completion is flagged.
         context = await self._enrich_with_goal_completion_context(context, uid, db)
 
         # Raw interview excerpts — most substantive things the user said before synthesis
         context = await self._enrich_with_interview_excerpts(context, uid, db)
+
+        # Task and reflection history for coach continuity
+        context = await self._enrich_with_task_history(context, uid, db)
+        context = await self._enrich_with_reflection_history(context, uid, db)
 
         # Cache for 5 minutes
         await cache_user_context(uid, context)
@@ -370,18 +377,6 @@ class ContextBuilder:
         """
         Check for goal completion interventions and populate {goal_completion_context}
         for the coach system prompt.
-
-        When a user's goal is flagged as approaching_completion by the weekly scheduler,
-        two coach_interventions are created:
-          - 'goal_approaching_completion': shifts coach to reflective/consolidation mode
-          - 'reinterview_available' (Identity tier only): coach surfaces re-interview offer
-
-        This method reads those interventions and builds the instruction string that
-        gets injected into {goal_completion_context} in COACH_SYSTEM_V2.
-
-        For users with no completion flag: returns empty string — no prompt change.
-        The goal status check is done directly against the goals table, not just
-        interventions, so it stays accurate even if interventions are manually cleared.
         """
         goal_result = await db.execute(
             text("""
@@ -446,11 +441,6 @@ class ContextBuilder:
     ) -> dict:
         """
         Pull the most substantive user messages from the discovery interview.
-        These are the moments where the user was most honest and unguarded —
-        before synthesis cleaned up their language into profile fields.
-
-        Coach PO receives these as raw_interview_excerpts so it can reference
-        specific things the user said, not just what the system extracted.
         """
         result = await db.execute(
             text("""
@@ -473,6 +463,87 @@ class ContextBuilder:
         # Sort by length descending — longer answers tend to be more substantive
         user_messages.sort(key=len, reverse=True)
         context["raw_interview_excerpts"] = user_messages[:5]
+        return context
+
+    async def _enrich_with_task_history(
+        self, context: dict, user_id: str, db: AsyncSession
+    ) -> dict:
+        """
+        Pull last 30 days of tasks (date, title, status) for coach context.
+        Enables the coach to reference what tasks the user has been given
+        and whether they completed them.
+        """
+        result = await db.execute(
+            text("""
+                SELECT scheduled_date, title, status
+                FROM daily_tasks
+                WHERE user_id = :user_id
+                  AND scheduled_date >= CURRENT_DATE - INTERVAL '30 days'
+                ORDER BY scheduled_date DESC
+                LIMIT 30
+            """),
+            {"user_id": user_id},
+        )
+        rows = result.fetchall()
+
+        task_history = [
+            {
+                "date": str(row[0]),
+                "title": row[1] or "",
+                "status": row[2] or "unknown",
+            }
+            for row in rows
+        ]
+        context["task_history"] = task_history
+        return context
+
+    async def _enrich_with_reflection_history(
+        self, context: dict, user_id: str, db: AsyncSession
+    ) -> dict:
+        """
+        Pull last 10 reflections with task context and what the user said.
+        Enables the coach to reference specific reflections:
+        "You said after that task that..."
+        """
+        result = await db.execute(
+            text("""
+                SELECT
+                    r.created_at::date AS reflection_date,
+                    dt.title AS task_title,
+                    r.qa_pairs,
+                    r.depth_score
+                FROM reflections r
+                LEFT JOIN daily_tasks dt ON dt.user_id = r.user_id
+                    AND dt.scheduled_date = r.created_at::date
+                WHERE r.user_id = :user_id
+                ORDER BY r.created_at DESC
+                LIMIT 10
+            """),
+            {"user_id": user_id},
+        )
+        rows = result.fetchall()
+
+        reflection_history = []
+        for row in rows:
+            reflection_date, task_title, qa_pairs, depth_score = row
+
+            # Extract user responses from qa_pairs
+            user_responses = []
+            if qa_pairs:
+                pairs = qa_pairs if isinstance(qa_pairs, list) else []
+                for pair in pairs:
+                    answer = pair.get("answer") or pair.get("response") or ""
+                    if answer and len(answer) > 10:
+                        user_responses.append(answer[:150])
+
+            reflection_history.append({
+                "date": str(reflection_date),
+                "task_title": task_title or "unknown task",
+                "summary": " / ".join(user_responses[:2]) if user_responses else "",
+                "depth_score": float(depth_score) if depth_score else None,
+            })
+
+        context["reflection_history"] = reflection_history
         return context
 
     def _format_time_away(self, days: float | None) -> str:
@@ -625,6 +696,32 @@ class ContextBuilder:
             ]
             for i, excerpt in enumerate(excerpts, 1):
                 lines += [f"  {i}. \"{excerpt[:200]}{'...' if len(excerpt) > 200 else ''}\""]
+
+        # Task history for coach continuity
+        task_history = context.get("task_history", [])
+        if task_history:
+            lines += [
+                f"",
+                f"RECENT TASK HISTORY (last 30 days)",
+            ]
+            for t in task_history[:10]:
+                lines += [f"  {t['date']} | {t['status']} | {t['title']}"]
+
+        # Reflection history for coach continuity
+        reflection_history = context.get("reflection_history", [])
+        if reflection_history:
+            lines += [
+                f"",
+                f"RECENT REFLECTION HISTORY",
+            ]
+            for r in reflection_history[:5]:
+                summary = r.get("summary", "")
+                depth = f" | depth: {r['depth_score']}" if r.get("depth_score") else ""
+                lines += [
+                    f"  {r['date']} | {r['task_title']}{depth}",
+                ]
+                if summary:
+                    lines += [f"    \"{summary[:120]}\""]
 
         needs_intervention = (retention or {}).get("needs_intervention", False)
         if needs_intervention:

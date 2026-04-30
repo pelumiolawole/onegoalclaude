@@ -2,6 +2,7 @@
 api/routers/coach.py
 
 AI Coach endpoints:
+    GET  /coach/greeting              — Today's task greeting for coach opening message
     POST /coach/sessions              — Create a new session (V2: with opening context)
     GET  /coach/sessions              — List recent sessions
     GET  /coach/sessions/{id}         — Get session with messages
@@ -46,7 +47,7 @@ class MessageRequest(BaseModel):
 
 class CreateSessionRequest(BaseModel):
     opening_context: str | None = Field(
-        default=None, 
+        default=None,
         description="What the user wants to discuss (optional, for V2 session tracking)"
     )
 
@@ -77,6 +78,86 @@ class MessageResponse(BaseModel):
     created_at: str
 
 
+# ─── Greeting Endpoint ────────────────────────────────────────────────────────
+
+@router.get(
+    "/greeting",
+    summary="Get today's task greeting for the coach opening message",
+)
+async def get_coach_greeting(
+    current_user: User = Depends(get_onboarded_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Returns a pre-formatted coach greeting based on today's task.
+    The frontend injects this as the opening assistant message when starting
+    a new session.
+
+    If no task exists for today (e.g. before the 4am sweep), returns a fallback
+    greeting and triggers on-demand task generation in the background.
+
+    Response shape:
+        {
+            "has_task": bool,
+            "task_title": str | None,
+            "guidance": str | None,
+            "greeting": str,
+        }
+    """
+    uid = str(current_user.id)
+    first_name = (current_user.display_name or "").split()[0] or "there"
+
+    # Fetch today's task for this user
+    result = await db.execute(
+        text("""
+            SELECT title, guidance
+            FROM daily_tasks
+            WHERE user_id = :user_id
+              AND scheduled_date = CURRENT_DATE
+            ORDER BY created_at DESC
+            LIMIT 1
+        """),
+        {"user_id": uid},
+    )
+    row = result.fetchone()
+
+    if not row:
+        # No task yet — return fallback and trigger generation in background
+        logger.info("coach_greeting_no_task", user_id=uid)
+        return {
+            "has_task": False,
+            "task_title": None,
+            "guidance": None,
+            "greeting": (
+                f"Good morning {first_name}, your task for today is being prepared. "
+                "While you wait, what's on your mind?"
+            ),
+        }
+
+    task_title = row[0] or ""
+    guidance = row[1]  # May be NULL for tasks generated before migration
+
+    # Build guidance line — fall back gracefully if column is null
+    if guidance:
+        guidance_line = f"\n\nHow to approach it: {guidance}"
+    else:
+        guidance_line = ""
+
+    greeting = (
+        f"Good morning {first_name}. Your task today is: {task_title}.{guidance_line}"
+        f"\n\nHow can I help you with today's task, or is there something else on your mind?"
+    )
+
+    logger.info("coach_greeting_served", user_id=uid, task_title=task_title, has_guidance=bool(guidance))
+
+    return {
+        "has_task": True,
+        "task_title": task_title,
+        "guidance": guidance,
+        "greeting": greeting,
+    }
+
+
 # ─── Session Management (V2 Enhanced) ─────────────────────────────────────────
 
 @router.post(
@@ -94,21 +175,21 @@ async def create_session(
     The opening context helps the coach arrive with continuity from previous sessions.
     """
     opening = payload.opening_context if payload else None
-    
+
     # Use V2 start_session which creates both V2 and legacy session records
     session_id = await coach_engine.start_session(
-        current_user.id, 
-        db, 
+        current_user.id,
+        db,
         opening_context=opening
     )
-    
+
     logger.info(
         "coach_session_created_v2",
         user_id=str(current_user.id),
         session_id=session_id,
         has_opening_context=bool(opening),
     )
-    
+
     return {
         "session_id": session_id,
         "version": "v2",
@@ -185,7 +266,7 @@ async def get_active_session(
         "is_new_session": is_new_session,
         "message_count": message_count,
         "messages": messages,
-        "continuity": continuity,  # V2: helps frontend show "Welcome back" context
+        "continuity": continuity,
     }
 
 
@@ -203,11 +284,10 @@ async def list_sessions(
     List recent sessions. Set include_v2_details=true to get opening/closing insights.
     """
     if include_v2_details:
-        # V2 query with full session data
         result = await db.execute(
             text("""
-                SELECT 
-                    cs.id, 
+                SELECT
+                    cs.id,
                     cs.coach_mode_used as coaching_mode,
                     cs.session_start as started_at,
                     cs.session_end as ended_at,
@@ -218,7 +298,7 @@ async def list_sessions(
                 FROM coach_sessions cs
                 LEFT JOIN ai_coach_messages acm ON acm.session_id = cs.id::text
                 WHERE cs.user_id = :user_id
-                GROUP BY cs.id, cs.coach_mode_used, cs.session_start, 
+                GROUP BY cs.id, cs.coach_mode_used, cs.session_start,
                          cs.session_end, cs.opening_context, cs.closing_insight, cs.next_session_hook
                 ORDER BY cs.session_start DESC
                 LIMIT :limit
@@ -240,7 +320,6 @@ async def list_sessions(
             for row in result.fetchall()
         ]
     else:
-        # Legacy query for backward compatibility
         result = await db.execute(
             text("""
                 SELECT id, coaching_mode, message_count, started_at, last_message_at
@@ -261,7 +340,7 @@ async def list_sessions(
             }
             for row in result.fetchall()
         ]
-    
+
     return {"sessions": sessions, "version": "v2" if include_v2_details else "v1"}
 
 
@@ -280,12 +359,12 @@ async def send_message(
 ) -> StreamingResponse:
     """
     Send a message to the AI coach and receive a streaming response.
-    
+
     V2 Enhancements:
       - First message in session triggers is_new_session=True for continuity
       - Automatic moment detection (breakthroughs, resistance, commitments)
       - Crisis mode integration for safety concerns
-    
+
     Quota headers included in response:
         X-Quota-Status: unlimited|active|warning
         X-Quota-Count: current usage count
@@ -325,7 +404,7 @@ async def send_message(
         "X-Quota-Count": str(quota_info.get("count", 0)),
         "X-Quota-Limit": str(quota_info.get("limit", "unlimited")) if quota_info.get("limit") != float('inf') else "unlimited",
     }
-    
+
     if quota_info.get("warning"):
         quota_headers["X-Quota-Warning"] = "true"
         quota_headers["X-Quota-Remaining"] = str(quota_info.get("remaining", 0))
@@ -337,8 +416,7 @@ async def send_message(
                 remaining = quota_info.get("remaining", 0)
                 count = quota_info.get("count", 0)
                 limit = quota_info.get("limit", 10)
-                
-                # Determine warning level and styling
+
                 if remaining == 0:
                     warning_level = "critical"
                     message = "This is your last message today"
@@ -351,7 +429,7 @@ async def send_message(
                     warning_level = "notice"
                     message = f"{remaining} messages remaining today"
                     subtext = "You're making progress. Upgrade anytime for unlimited coaching."
-                
+
                 warning_event = {
                     "type": "quota_banner",
                     "level": warning_level,
@@ -373,7 +451,7 @@ async def send_message(
                     }
                 }
                 yield f"event: system\nid: quota-warning\ndata: {json.dumps(warning_event)}\n\n"
-            
+
             # V2: Stream without passing db — engine manages its own connections
             async for chunk in coach_engine.stream_response(
                 user_id=current_user.id,
@@ -381,11 +459,9 @@ async def send_message(
                 user_message=payload.content,
                 is_new_session=is_new_session,
             ):
-                # SSE format: each event is "data: <content>\n\n"
                 escaped = chunk.replace("\n", "\\n")
                 yield f"data: {escaped}\n\n"
 
-            # Signal stream completion
             yield "data: [DONE]\n\n"
 
         except Exception as e:
@@ -403,7 +479,7 @@ async def send_message(
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # disable nginx buffering for SSE
+            "X-Accel-Buffering": "no",
             **quota_headers,
         },
     )
@@ -427,8 +503,7 @@ async def end_session(
     """
     closing = payload.closing_insight if payload else None
     next_hook = payload.next_session_hook if payload else None
-    
-    # Use V2 end_session which updates both V2 and legacy records
+
     await coach_engine.end_session(
         user_id=current_user.id,
         session_id=session_id,
@@ -436,7 +511,7 @@ async def end_session(
         next_hook=next_hook,
         db=db,
     )
-    
+
     logger.info(
         "coach_session_ended_v2",
         user_id=str(current_user.id),

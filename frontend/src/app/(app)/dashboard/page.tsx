@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import { motion, AnimatePresence } from 'framer-motion'
 import { api } from '@/lib/api'
@@ -14,6 +15,7 @@ import { trackEvent } from '@/lib/posthog'
 
 export default function DashboardPage() {
   const { user } = useAuthStore()
+  const router = useRouter()
   const [reflectionOpen, setReflectionOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [expandedTask, setExpandedTask] = useState<string | null>(null)
@@ -99,6 +101,14 @@ export default function DashboardPage() {
                 onSkip={handleTaskSkip}
                 onReflect={() => setReflectionOpen(true)}
               />
+              {/* How to do this — routes to coach with today's task in context */}
+              <button
+                onClick={() => router.push('/coach')}
+                className="mt-2 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-[#F59E0B]/20 bg-[#F59E0B]/5 text-[#F59E0B] text-sm hover:bg-[#F59E0B]/10 hover:border-[#F59E0B]/30 transition-all"
+              >
+                <span className="text-[#F59E0B] text-xs">✦</span>
+                How to do this
+              </button>
             </motion.div>
           ) : (
             <NoTaskCard />
@@ -280,7 +290,6 @@ export default function DashboardPage() {
                         {/* Task rows — expandable */}
                         {historyData.tasks.map((t: any) => (
                           <div key={t.id}>
-                            {/* Summary row — always visible */}
                             <button
                               onClick={() => toggleTask(t.id)}
                               className="w-full px-5 py-3.5 flex items-start gap-3 hover:bg-[#1E1B18] transition-colors text-left"
@@ -308,13 +317,11 @@ export default function DashboardPage() {
                                   <p className="text-[#F59E0B] text-[10px] font-mono">reflected</p>
                                 )}
                               </div>
-                              {/* Expand indicator */}
                               <div className={`text-[#3D3630] shrink-0 mt-0.5 transition-transform duration-200 ${expandedTask === t.id ? 'rotate-180' : ''}`}>
                                 <ChevronIcon />
                               </div>
                             </button>
 
-                            {/* Expanded detail */}
                             <AnimatePresence initial={false}>
                               {expandedTask === t.id && (
                                 <motion.div
@@ -326,7 +333,6 @@ export default function DashboardPage() {
                                 >
                                   <div className="px-5 pb-5 pt-1 bg-[#0F0D0B] border-t border-white/5 space-y-4">
 
-                                    {/* Task description */}
                                     {t.description && (
                                       <div>
                                         <p className="text-[#3D3630] text-[10px] uppercase tracking-widest font-mono mb-1.5">
@@ -338,7 +344,6 @@ export default function DashboardPage() {
                                       </div>
                                     )}
 
-                                    {/* Identity anchor */}
                                     {t.identity_focus && (
                                       <div>
                                         <p className="text-[#3D3630] text-[10px] uppercase tracking-widest font-mono mb-1.5">
@@ -350,7 +355,6 @@ export default function DashboardPage() {
                                       </div>
                                     )}
 
-                                    {/* Reflection Q&A */}
                                     {t.reflection_qa?.length > 0 ? (
                                       <div>
                                         <p className="text-[#3D3630] text-[10px] uppercase tracking-widest font-mono mb-3">
@@ -380,7 +384,6 @@ export default function DashboardPage() {
                                       </div>
                                     )}
 
-                                    {/* AI insight */}
                                     {t.reflection_insight && (
                                       <div className="bg-[#F59E0B]/5 border border-[#F59E0B]/10 rounded-xl p-3">
                                         <p className="text-[#3D3630] text-[10px] uppercase tracking-widest font-mono mb-1.5">
@@ -392,7 +395,6 @@ export default function DashboardPage() {
                                       </div>
                                     )}
 
-                                    {/* Sentiment badge */}
                                     {t.reflection_sentiment && (
                                       <div className="flex items-center gap-2">
                                         <SentimentBadge sentiment={t.reflection_sentiment} />

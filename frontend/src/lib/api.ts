@@ -102,6 +102,13 @@ export interface ReviewSummary {
   score_delta: number
 }
 
+export interface CoachGreeting {
+  has_task: boolean
+  task_title: string | null
+  guidance: string | null
+  greeting: string
+}
+
 // ── Core fetch wrapper ─────────────────────────────────────────────────────
 
 class ApiClient {
@@ -374,7 +381,16 @@ class ApiClient {
 
   coach = {
     getActiveSession: () =>
-      this.request<{ session_id: string; messages: any[] }>('/coach/sessions/active'),
+      this.request<{
+        session_id: string
+        is_new_session: boolean
+        message_count: number
+        messages: any[]
+        continuity: { pending_follow_up: string | null; last_insight: string | null } | null
+      }>('/coach/sessions/active'),
+
+    getGreeting: () =>
+      this.request<CoachGreeting>('/coach/greeting'),
 
     createSession: () =>
       this.request<{ session_id: string }>('/coach/sessions', { method: 'POST' }),
