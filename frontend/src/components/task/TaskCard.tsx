@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface Task {
@@ -8,6 +9,8 @@ interface Task {
   identity_focus: string
   title: string
   description: string
+  execution_guidance?: string
+  guidance?: string
   time_estimate_minutes: number
   difficulty: number
   status: 'pending' | 'completed' | 'skipped'
@@ -22,14 +25,18 @@ interface Props {
 }
 
 export default function TaskCard({ task, onComplete, onSkip, onReflect }: Props) {
-  const [expanded,    setExpanded]    = useState(false)
-  const [completing,  setCompleting]  = useState(false)
-  const [skipMode,    setSkipMode]    = useState(false)
-  const [skipReason,  setSkipReason]  = useState('')
-  const [skipping,    setSkipping]    = useState(false)
+  const router = useRouter()
+  const [expanded,   setExpanded]   = useState(false)
+  const [completing, setCompleting] = useState(false)
+  const [skipMode,   setSkipMode]   = useState(false)
+  const [skipReason, setSkipReason] = useState('')
+  const [skipping,   setSkipping]   = useState(false)
 
   const isCompleted = task.status === 'completed'
   const isSkipped   = task.status === 'skipped'
+
+  // Prefer the new guidance field, fall back to execution_guidance
+  const guidanceText = task.guidance || task.execution_guidance || null
 
   async function handleComplete() {
     setCompleting(true)
@@ -84,7 +91,7 @@ export default function TaskCard({ task, onComplete, onSkip, onReflect }: Props)
           {task.description}
         </p>
 
-        {/* Execution guidance — expandable */}
+        {/* How to do this — toggle */}
         <button
           onClick={() => setExpanded(e => !e)}
           className="text-[#5C524A] text-xs flex items-center gap-1 hover:text-[#A09690] transition-colors mb-4"
@@ -102,10 +109,29 @@ export default function TaskCard({ task, onComplete, onSkip, onReflect }: Props)
               transition={{ duration: 0.25 }}
               className="overflow-hidden"
             >
-              <p className="text-[#A09690] text-sm leading-relaxed bg-[#1E1B18] rounded-xl p-4 mb-4 border border-white/5">
-                {/* execution_guidance not in summary — pass full task if needed */}
-                Approach this task with full presence. Let the doing be the practice.
-              </p>
+              {guidanceText ? (
+                // Tappable — routes to coach with task context
+                <button
+                  onClick={() => router.push('/coach')}
+                  className="w-full text-left group mb-4"
+                >
+                  <div className="bg-[#1E1B18] rounded-xl p-4 border border-white/5 group-hover:border-[#F59E0B]/20 transition-colors">
+                    <p className="text-[#A09690] text-sm leading-relaxed group-hover:text-[#C4BBB5] transition-colors">
+                      {guidanceText}
+                    </p>
+                    <p className="text-[#F59E0B]/50 text-xs mt-3 group-hover:text-[#F59E0B]/80 transition-colors">
+                      Tap to discuss with your coach ✦
+                    </p>
+                  </div>
+                </button>
+              ) : (
+                // No guidance yet (pre-migration task) — non-tappable fallback
+                <div className="bg-[#1E1B18] rounded-xl p-4 border border-white/5 mb-4">
+                  <p className="text-[#5C524A] text-sm leading-relaxed italic">
+                    Guidance will appear on your next task.
+                  </p>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

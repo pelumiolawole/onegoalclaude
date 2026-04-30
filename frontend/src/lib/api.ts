@@ -54,6 +54,8 @@ export interface TodayTask {
   identity_focus: string
   title: string
   description: string
+  execution_guidance: string | null
+  guidance: string | null
   time_estimate_minutes: number
   difficulty: number
   status: 'pending' | 'completed' | 'skipped'

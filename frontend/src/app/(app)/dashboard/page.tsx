@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import { motion, AnimatePresence } from 'framer-motion'
 import { api } from '@/lib/api'
@@ -15,7 +14,6 @@ import { trackEvent } from '@/lib/posthog'
 
 export default function DashboardPage() {
   const { user } = useAuthStore()
-  const router = useRouter()
   const [reflectionOpen, setReflectionOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [expandedTask, setExpandedTask] = useState<string | null>(null)
@@ -101,14 +99,6 @@ export default function DashboardPage() {
                 onSkip={handleTaskSkip}
                 onReflect={() => setReflectionOpen(true)}
               />
-              {/* How to do this — routes to coach with today's task in context */}
-              <button
-                onClick={() => router.push('/coach')}
-                className="mt-2 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-[#F59E0B]/20 bg-[#F59E0B]/5 text-[#F59E0B] text-sm hover:bg-[#F59E0B]/10 hover:border-[#F59E0B]/30 transition-all"
-              >
-                <span className="text-[#F59E0B] text-xs">✦</span>
-                How to do this
-              </button>
             </motion.div>
           ) : (
             <NoTaskCard />
