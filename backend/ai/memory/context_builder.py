@@ -510,7 +510,7 @@ class ContextBuilder:
                 SELECT
                     r.created_at::date AS reflection_date,
                     dt.title AS task_title,
-                    r.qa_pairs,
+                    r.questions_answers,
                     r.depth_score
                 FROM reflections r
                 LEFT JOIN daily_tasks dt ON dt.user_id = r.user_id
@@ -525,12 +525,12 @@ class ContextBuilder:
 
         reflection_history = []
         for row in rows:
-            reflection_date, task_title, qa_pairs, depth_score = row
+            reflection_date, task_title, questions_answers, depth_score = row
 
-            # Extract user responses from qa_pairs
+            # Extract user responses from questions_answers
             user_responses = []
-            if qa_pairs:
-                pairs = qa_pairs if isinstance(qa_pairs, list) else []
+            if questions_answers:
+                pairs = questions_answers if isinstance(questions_answers, list) else []
                 for pair in pairs:
                     answer = pair.get("answer") or pair.get("response") or ""
                     if answer and len(answer) > 10:
