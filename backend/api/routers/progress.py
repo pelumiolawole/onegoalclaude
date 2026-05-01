@@ -60,6 +60,7 @@ async def get_dashboard(
         text("""
             SELECT
                 dt.id, dt.identity_focus, dt.title, dt.description,
+                dt.execution_guidance, dt.guidance,
                 dt.time_estimate_minutes, dt.difficulty_level,
                 dt.status, dt.task_type,
                 r.id AS reflection_id
@@ -80,6 +81,8 @@ async def get_dashboard(
             "identity_focus": task_row.identity_focus,
             "title": task_row.title,
             "description": task_row.description,
+            "execution_guidance": task_row.execution_guidance,
+            "guidance": task_row.guidance,
             "time_estimate_minutes": task_row.time_estimate_minutes,
             "difficulty": task_row.difficulty_level,
             "status": task_row.status,
