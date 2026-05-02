@@ -45,6 +45,7 @@ class ReflectionAnswer(BaseModel):
 class SubmitReflectionRequest(BaseModel):
     task_id: str
     answers: list[ReflectionAnswer] = Field(min_length=1, max_length=5)
+    personal_note: str | None = Field(default=None, max_length=5000)
 
 
 # ─── Reflection Questions ─────────────────────────────────────────────────────
@@ -127,6 +128,7 @@ async def submit_reflection(
             detail="You've already reflected on this task.",
         )
 
+    # Build QA list from structured answers
     qa_list = [
         {
             "question": a.question,
@@ -135,6 +137,16 @@ async def submit_reflection(
         }
         for a in payload.answers
     ]
+
+    # Append personal note as a separate entry if provided.
+    # Stored in the same JSONB column so it flows automatically to
+    # task generator context, coach context builder, and history display.
+    if payload.personal_note and payload.personal_note.strip():
+        qa_list.append({
+            "question": "personal_note",
+            "answer": payload.personal_note.strip(),
+            "question_type": "personal_note",
+        })
 
     reflection_result = await db.execute(
         text("""
@@ -167,7 +179,6 @@ async def submit_reflection(
         db=db,
     )
 
-    # FIXED: Insert progress_metrics with depth_score and trigger score update
     await db.execute(
         text("""
             INSERT INTO progress_metrics
@@ -186,13 +197,11 @@ async def submit_reflection(
         },
     )
 
-    # FIXED: Trigger immediate score recalculation after reflection submission
     try:
         updated_scores = await trigger_score_update(db, uid)
         logger.info("scores_updated_after_reflection", user_id=uid, reflection_id=str(reflection_id), scores=updated_scores)
     except Exception as e:
         logger.error("score_update_failed_after_reflection", user_id=uid, reflection_id=str(reflection_id), error=str(e))
-        # Don't fail the reflection submission if scoring fails
 
     await db.commit()
     await invalidate_user_context(uid)
@@ -203,6 +212,7 @@ async def submit_reflection(
         reflection_id=str(reflection_id),
         sentiment=analysis.get("sentiment"),
         depth=analysis.get("depth_score"),
+        has_personal_note=bool(payload.personal_note),
     )
 
     return {
@@ -231,7 +241,8 @@ async def get_reflection_history(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     uid = str(current_user.id)
-    since = date.today() - timedelta(days=min(days, 90))
+    limit_days = min(days, 90)
+    since = date.today() - timedelta(days=limit_days)
 
     result = await db.execute(
         text("""
@@ -342,12 +353,18 @@ async def _get_reflection_by_date(user_id: str, target_date: date, db: AsyncSess
             detail=f"No reflection found for {target_date}.",
         )
 
+    # Separate personal note from structured QA for the response
+    all_qa = row.questions_answers or []
+    qa_pairs = [e for e in all_qa if e.get("question_type") != "personal_note"]
+    personal_note_entry = next((e for e in all_qa if e.get("question_type") == "personal_note"), None)
+
     return {
         "id": str(row.id),
         "date": str(row.reflection_date),
         "task_title": row.task_title,
         "identity_focus": row.identity_focus,
-        "answers": row.questions_answers or [],
+        "answers": qa_pairs,
+        "personal_note": personal_note_entry["answer"] if personal_note_entry else None,
         "sentiment": row.sentiment,
         "depth_score": float(row.depth_score) if row.depth_score else None,
         "emotional_tone": row.emotional_tone,

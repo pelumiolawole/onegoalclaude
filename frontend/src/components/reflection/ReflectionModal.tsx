@@ -12,7 +12,7 @@ interface Props {
   onDone: () => void
 }
 
-type Stage = 'loading' | 'answering' | 'submitting' | 'feedback'
+type Stage = 'loading' | 'answering' | 'submitting' | 'completing' | 'feedback'
 
 interface Question {
   question: string
@@ -20,11 +20,12 @@ interface Question {
 }
 
 export default function ReflectionModal({ taskId, taskTitle, onClose, onDone }: Props) {
-  const [stage,     setStage]     = useState<Stage>('loading')
-  const [questions, setQuestions] = useState<Question[]>([])
-  const [answers,   setAnswers]   = useState<string[]>([])
-  const [feedback,  setFeedback]  = useState('')
-  const [sentiment, setSentiment] = useState('')
+  const [stage,       setStage]       = useState<Stage>('loading')
+  const [questions,   setQuestions]   = useState<Question[]>([])
+  const [answers,     setAnswers]     = useState<string[]>([])
+  const [personalNote, setPersonalNote] = useState('')
+  const [feedback,    setFeedback]    = useState('')
+  const [sentiment,   setSentiment]   = useState('')
 
   useEffect(() => {
     api.reflections.getQuestions(taskId)
@@ -48,15 +49,27 @@ export default function ReflectionModal({ taskId, taskTitle, onClose, onDone }: 
           question: q.question,
           answer: answers[i],
           question_type: q.question_type,
-        }))
+        })),
+        personalNote.trim() || undefined
       )
       setFeedback(res.ai_feedback)
       setSentiment(res.sentiment)
+
+      // Mark task as complete immediately after reflection submits
+      setStage('completing')
+      try {
+        await api.tasks.complete(taskId)
+      } catch {
+        // Task may already be complete — non-fatal, continue to feedback
+      }
+
       setStage('feedback')
     } catch {
       setStage('answering')
     }
   }
+
+  const allAnswered = questions.length > 0 && questions.every((_, i) => answers[i]?.trim())
 
   return (
     <motion.div
@@ -124,12 +137,33 @@ export default function ReflectionModal({ taskId, taskTitle, onClose, onDone }: 
                 </motion.div>
               ))}
 
+              {/* Personal note — optional diary field */}
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: questions.length * 0.1 }}
+              >
+                <label className="block text-[#5C524A] text-xs uppercase tracking-widest font-mono mb-2">
+                  Personal note <span className="normal-case tracking-normal ml-1 opacity-60">(optional)</span>
+                </label>
+                <TextareaAutosize
+                  value={personalNote}
+                  onChange={e => setPersonalNote(e.target.value)}
+                  minRows={2}
+                  placeholder="Anything else on your mind — this is just for you."
+                  className="input-base text-sm leading-relaxed resize-none"
+                />
+                <p className="text-[#3D3630] text-xs mt-1.5">
+                  Your coach and task generator will use this as context.
+                </p>
+              </motion.div>
+
               <button
                 onClick={handleSubmit}
-                disabled={!questions.every((_, i) => answers[i]?.trim())}
+                disabled={!allAnswered}
                 className="btn btn-primary w-full h-11"
               >
-                Submit reflection
+                Complete today's task
               </button>
             </div>
           )}
@@ -139,6 +173,14 @@ export default function ReflectionModal({ taskId, taskTitle, onClose, onDone }: 
             <div className="py-12 flex flex-col items-center gap-3">
               <div className="w-8 h-8 border-2 border-[#F59E0B]/20 border-t-[#F59E0B] rounded-full animate-spin" />
               <p className="text-[#5C524A] text-sm">Analyzing your reflection…</p>
+            </div>
+          )}
+
+          {/* Completing */}
+          {stage === 'completing' && (
+            <div className="py-12 flex flex-col items-center gap-3">
+              <div className="w-8 h-8 border-2 border-[#F59E0B]/20 border-t-[#F59E0B] rounded-full animate-spin" />
+              <p className="text-[#5C524A] text-sm">Marking task complete…</p>
             </div>
           )}
 

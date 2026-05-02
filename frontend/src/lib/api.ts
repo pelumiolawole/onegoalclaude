@@ -358,7 +358,11 @@ class ApiClient {
     getQuestions: (taskId: string) =>
       this.request<{ task_id: string; questions: any[] }>(`/reflections/questions/${taskId}`),
 
-    submit: (taskId: string, answers: Array<{ question: string; answer: string; question_type: string }>) =>
+    submit: (
+      taskId: string,
+      answers: Array<{ question: string; answer: string; question_type: string }>,
+      personalNote?: string,
+    ) =>
       this.request<{
         reflection_id: string
         ai_feedback: string
@@ -366,7 +370,11 @@ class ApiClient {
         safety_triggered: boolean
       }>('/reflections', {
         method: 'POST',
-        body: JSON.stringify({ task_id: taskId, answers }),
+        body: JSON.stringify({
+          task_id: taskId,
+          answers,
+          personal_note: personalNote ?? null,
+        }),
       }),
 
     getToday: () =>

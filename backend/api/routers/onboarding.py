@@ -590,6 +590,19 @@ async def activate_account(
         db=db,
     )
 
+    # Generate today's task immediately so the user lands on the dashboard
+    # with a task ready now, not tomorrow morning.
+    from datetime import date as _date
+    today_task = await task_generator.generate_task_for_user(
+        user_id=current_user.id,
+        target_date=_date.today(),
+        db=db,
+    )
+    if today_task:
+        logger.info("activation_today_task_generated", user_id=str(current_user.id))
+    else:
+        logger.info("activation_today_task_skipped_already_exists", user_id=str(current_user.id))
+
     await db.execute(
         text("UPDATE users SET onboarding_status = 'active' WHERE id = :user_id"),
         {"user_id": str(current_user.id)},

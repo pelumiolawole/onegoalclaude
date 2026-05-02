@@ -35,22 +35,18 @@ export default function DashboardPage() {
   const greeting = getGreeting()
   const name     = user?.display_name?.split(' ')[0] || 'there'
 
-  async function handleTaskComplete() {
-    if (!task) return
-    await api.tasks.complete(task.id)
-    trackEvent('task_completed', { task_id: task.id })
-    await mutate()
+  // Task completion now happens inside ReflectionModal after reflection submits.
+  // This handler just closes the modal and refreshes the dashboard.
+  function handleReflectionDone() {
+    setReflectionOpen(false)
+    trackEvent('task_completed', { task_id: task?.id })
+    mutate()
   }
 
   async function handleTaskSkip(reason: string) {
     if (!task) return
     await api.tasks.skip(task.id, reason)
     await mutate()
-  }
-
-  function handleReflectionDone() {
-    setReflectionOpen(false)
-    mutate()
   }
 
   function toggleTask(id: string) {
@@ -86,7 +82,7 @@ export default function DashboardPage() {
       ) : (
         <div className="space-y-5">
 
-          {/* Today's Task */}
+          {/* Today's Task — button opens reflection modal, not direct complete */}
           {task ? (
             <motion.div
               initial={{ opacity: 0, y: 12 }}
@@ -95,7 +91,7 @@ export default function DashboardPage() {
             >
               <TaskCard
                 task={task}
-                onComplete={handleTaskComplete}
+                onComplete={() => setReflectionOpen(true)}
                 onSkip={handleTaskSkip}
                 onReflect={() => setReflectionOpen(true)}
               />
@@ -361,6 +357,16 @@ export default function DashboardPage() {
                                               </p>
                                             </div>
                                           ))}
+                                          {t.personal_note && (
+                                            <div className="mt-2 pt-3 border-t border-white/5">
+                                              <p className="text-[#3D3630] text-[10px] uppercase tracking-widest font-mono mb-1.5">
+                                                Personal note
+                                              </p>
+                                              <p className="text-[#7A6E65] text-sm leading-relaxed italic">
+                                                {t.personal_note}
+                                              </p>
+                                            </div>
+                                          )}
                                         </div>
                                       </div>
                                     ) : (
@@ -408,7 +414,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Reflection modal */}
+      {/* Reflection modal — opens on "Complete today's task", handles completion internally */}
       <AnimatePresence>
         {reflectionOpen && task && (
           <ReflectionModal
