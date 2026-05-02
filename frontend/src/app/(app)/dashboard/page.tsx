@@ -91,7 +91,7 @@ export default function DashboardPage() {
             >
               <TaskCard
                 task={task}
-                onComplete={() => setReflectionOpen(true)}
+                onComplete={async () => { setReflectionOpen(true) }}
                 onSkip={handleTaskSkip}
                 onReflect={() => setReflectionOpen(true)}
               />
