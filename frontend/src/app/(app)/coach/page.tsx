@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import TextareaAutosize from 'react-textarea-autosize'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
-import { trackEvent } from '@/lib/posthog'
 import { X, Zap, AlertTriangle, AlertCircle } from 'lucide-react'
 
 interface Message {
@@ -101,59 +100,25 @@ export default function CoachPage() {
   const [streaming, setStreaming] = useState(false)
   const [loading, setLoading] = useState(true)
   const [quotaWarning, setQuotaWarning] = useState<QuotaWarning | null>(null)
+  const [quotaExhausted, setQuotaExhausted] = useState(false)
   const [dismissedWarnings, setDismissedWarnings] = useState<Set<string>>(new Set())
   const bottomRef = useRef<HTMLDivElement>(null)
   const msgId = useRef(0)
-  const sessionTracked = useRef(false)
 
-  // Load active session, then inject greeting if it's a new session
+  // Load active session
   useEffect(() => {
-    let cancelled = false
-
-    async function init() {
-      try {
-        const res = await api.coach.getActiveSession()
-        if (cancelled) return
-
+    api.coach.getActiveSession()
+      .then(res => {
         setSessionId(res.session_id)
-
-        // Session already has messages — restore them and don't inject greeting
-        if (res.messages && res.messages.length > 0) {
-          setMessages(res.messages.map((m: any) => ({
-            id: String(msgId.current++),
-            role: m.role,
-            content: m.content,
-            created_at: m.created_at,
-          })))
-          return
-        }
-
-        // New session — fetch greeting and inject as opening assistant message
-        if (res.is_new_session) {
-          try {
-            const greetingRes = await api.coach.getGreeting()
-            if (cancelled) return
-            if (greetingRes?.greeting) {
-              setMessages([{
-                id: String(msgId.current++),
-                role: 'assistant',
-                content: greetingRes.greeting,
-                created_at: new Date().toISOString(),
-              }])
-            }
-          } catch {
-            // Greeting fetch failed — fall through to empty state, not a hard error
-          }
-        }
-      } catch {
-        // Session fetch failed — loading will clear and empty state shows
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    init()
-    return () => { cancelled = true }
+        setMessages(res.messages.map((m: any) => ({
+          id: String(msgId.current++),
+          role: m.role,
+          content: m.content,
+          created_at: m.created_at,
+        })))
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {
@@ -166,12 +131,6 @@ export default function CoachPage() {
     setInput('')
     setStreaming(true)
 
-    // Track first message of session only
-    if (!sessionTracked.current) {
-      trackEvent('coach_session_started')
-      sessionTracked.current = true
-    }
-
     // Add user message
     const userId = String(msgId.current++)
     setMessages(prev => [...prev, { id: userId, role: 'user', content: text, created_at: new Date().toISOString() }])
@@ -182,11 +141,32 @@ export default function CoachPage() {
 
     try {
       const res = await api.coach.streamMessage(sessionId, text)
+
+      // Non-2xx response — parse the error body and handle appropriately
+      if (!res.ok) {
+        let errorDetail: any = {}
+        try { errorDetail = await res.json() } catch {}
+        const detail = errorDetail.detail || {}
+        if (res.status === 429 && (typeof detail === 'object' ? detail.code : errorDetail.code) === 'quota_exceeded') {
+          setMessages(prev => prev.filter(m => m.id !== aiId))
+          setQuotaExhausted(true)
+        } else {
+          setMessages(prev =>
+            prev.map(m => m.id === aiId
+              ? { ...m, content: "Something went wrong. Please try again.", streaming: false }
+              : m
+            )
+          )
+        }
+        return
+      }
+
       if (!res.body) throw new Error('No stream body')
 
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let fullText = ''
+      // Track whether the current line follows an 'event: system' marker
       let nextLineIsSystemEvent = false
 
       while (true) {
@@ -202,12 +182,14 @@ export default function CoachPage() {
             continue
           }
 
+          // Mark that the next data: line is a system event
           if (line.startsWith('event: system')) {
             nextLineIsSystemEvent = true
             continue
           }
 
           if (line.startsWith('data: ')) {
+            // FIX: do NOT trim() — spaces at the start of tokens are meaningful
             const data = line.slice(6)
 
             if (data === '[DONE]' || data.startsWith('[ERROR]')) {
@@ -215,6 +197,7 @@ export default function CoachPage() {
               break
             }
 
+            // If flagged as system event OR data looks like JSON, try to parse it
             if (nextLineIsSystemEvent || data.trimStart().startsWith('{')) {
               try {
                 const parsed = JSON.parse(data.trim())
@@ -230,6 +213,7 @@ export default function CoachPage() {
 
             nextLineIsSystemEvent = false
 
+            // Regular chat text — preserve spaces, unescape newlines
             fullText += data.replace(/\\n/g, '\n')
             setMessages(prev =>
               prev.map(m => m.id === aiId ? { ...m, content: fullText } : m)
@@ -238,16 +222,23 @@ export default function CoachPage() {
         }
       }
 
+      // Mark streaming done
       setMessages(prev =>
         prev.map(m => m.id === aiId ? { ...m, streaming: false } : m)
       )
-    } catch {
-      setMessages(prev =>
-        prev.map(m => m.id === aiId
-          ? { ...m, content: "Something went wrong. Please try again.", streaming: false }
-          : m
+    } catch (err: any) {
+      // 429 = quota exhausted — surface upgrade UI, remove the empty assistant bubble
+      if (err?.status === 429 && err?.detail?.code === 'quota_exceeded') {
+        setMessages(prev => prev.filter(m => m.id !== aiId))
+        setQuotaExhausted(true)
+      } else {
+        setMessages(prev =>
+          prev.map(m => m.id === aiId
+            ? { ...m, content: "Something went wrong. Please try again.", streaming: false }
+            : m
+          )
         )
-      )
+      }
     } finally {
       setStreaming(false)
     }
@@ -269,6 +260,7 @@ export default function CoachPage() {
 
   const name = user?.display_name?.split(' ')[0] || 'you'
 
+  // Don't show if dismissed
   const showWarning = quotaWarning && !dismissedWarnings.has(quotaWarning.message)
 
   return (
@@ -282,7 +274,6 @@ export default function CoachPage() {
         <div>
           <p className="text-[#E8E2DC] text-sm font-medium">Your Coach</p>
           <p className="text-[#3D3630] text-xs">Knows your goal, your history, and where you are</p>
-          <p className="text-[#2A2520] text-[10px] mt-0.5">AI coach — not a human</p>
         </div>
       </div>
 
@@ -295,7 +286,7 @@ export default function CoachPage() {
           </div>
         )}
 
-        {/* Empty state — only shows when no messages and not loading */}
+        {/* Empty state */}
         {!loading && messages.length === 0 && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -337,6 +328,7 @@ export default function CoachPage() {
               className={`relative mb-6 overflow-hidden rounded-2xl border ${quotaConfig[quotaWarning.level].border} bg-gradient-to-r ${quotaConfig[quotaWarning.level].gradient} backdrop-blur-sm`}
             >
               <div className="relative flex items-start gap-4 p-5">
+                {/* Icon */}
                 <div className={`flex-shrink-0 rounded-xl ${quotaConfig[quotaWarning.level].iconBg} p-2.5`}>
                   {(() => {
                     const Icon = quotaConfig[quotaWarning.level].icon
@@ -344,6 +336,7 @@ export default function CoachPage() {
                   })()}
                 </div>
 
+                {/* Content */}
                 <div className="flex-1 min-w-0">
                   <h4 className={`font-semibold text-sm ${quotaConfig[quotaWarning.level].titleColor}`}>
                     {quotaWarning.message}
@@ -352,6 +345,7 @@ export default function CoachPage() {
                     {quotaWarning.subtext}
                   </p>
 
+                  {/* Usage bar */}
                   <div className="mt-4 flex items-center gap-3">
                     <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
                       <motion.div
@@ -372,6 +366,7 @@ export default function CoachPage() {
                   </div>
                 </div>
 
+                {/* Actions */}
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => window.location.href = quotaWarning.action.link}
@@ -406,33 +401,33 @@ export default function CoachPage() {
                   <DateSeparator label={formatDateLabel(msg.created_at!)} />
                 )}
                 <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  {msg.role === 'assistant' && (
-                    <div className="w-7 h-7 rounded-full bg-[#F59E0B]/15 border border-[#F59E0B]/20 flex items-center justify-center mr-2.5 mt-0.5 shrink-0">
-                      <span className="text-[#F59E0B] text-[10px]">✦</span>
-                    </div>
-                  )}
-                  <div
-                    className={`max-w-[82%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
-                      msg.role === 'user'
-                        ? 'bg-[#F59E0B]/10 border border-[#F59E0B]/15 text-[#E8E2DC] rounded-tr-sm'
-                        : 'bg-[#1E1B18] border border-white/5 text-[#C4BBB5] rounded-tl-sm'
-                    }`}
-                  >
-                    {msg.content || (msg.streaming ? <TypingDots /> : '')}
-                    {msg.streaming && msg.content && (
-                      <motion.span
-                        animate={{ opacity: [1, 0] }}
-                        transition={{ duration: 0.5, repeat: Infinity }}
-                        className="inline-block w-0.5 h-3.5 bg-[#F59E0B] ml-0.5 align-middle"
-                      />
-                    )}
-                  </div>
-                </motion.div>
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            >
+              {msg.role === 'assistant' && (
+                <div className="w-7 h-7 rounded-full bg-[#F59E0B]/15 border border-[#F59E0B]/20 flex items-center justify-center mr-2.5 mt-0.5 shrink-0">
+                  <span className="text-[#F59E0B] text-[10px]">✦</span>
+                </div>
+              )}
+              <div
+                className={`max-w-[82%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                  msg.role === 'user'
+                    ? 'bg-[#F59E0B]/10 border border-[#F59E0B]/15 text-[#E8E2DC] rounded-tr-sm'
+                    : 'bg-[#1E1B18] border border-white/5 text-[#C4BBB5] rounded-tl-sm'
+                }`}
+              >
+                {msg.content || (msg.streaming ? <TypingDots /> : '')}
+                {msg.streaming && msg.content && (
+                  <motion.span
+                    animate={{ opacity: [1, 0] }}
+                    transition={{ duration: 0.5, repeat: Infinity }}
+                    className="inline-block w-0.5 h-3.5 bg-[#F59E0B] ml-0.5 align-middle"
+                  />
+                )}
+              </div>
+            </motion.div>
               </React.Fragment>
             )
           })}
@@ -443,20 +438,48 @@ export default function CoachPage() {
 
       {/* Input */}
       <div className="border-t border-white/5 p-4 shrink-0">
+
+        {/* Quota exhausted — persistent upgrade card shown above input */}
+        <AnimatePresence>
+          {quotaExhausted && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="max-w-3xl mx-auto mb-3 rounded-2xl border border-[#F59E0B]/25 bg-[#F59E0B]/6 px-5 py-4 flex items-center justify-between gap-4"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-[#F59E0B]/15 flex items-center justify-center shrink-0">
+                  <Zap className="w-4 h-4 text-[#F59E0B]" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[#F5F1ED] text-sm font-medium">You've used all 5 messages for today</p>
+                  <p className="text-[#7A6E65] text-xs mt-0.5">Upgrade to The Forge for unlimited coaching — no daily cap.</p>
+                </div>
+              </div>
+              <a
+                href="/settings/upgrade?plan=forge"
+                className="shrink-0 px-4 py-2 rounded-xl bg-[#F59E0B] text-[#0A0908] text-sm font-medium hover:bg-[#D97706] transition-colors whitespace-nowrap"
+              >
+                Upgrade
+              </a>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div className="flex items-end gap-3 bg-[#141210] border border-white/7 rounded-2xl px-4 py-3 focus-within:border-[#F59E0B]/30 focus-within:shadow-[0_0_0_3px_rgba(245,158,11,0.08)] transition-all max-w-3xl mx-auto">
           <TextareaAutosize
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={`What's on your mind, ${name}?`}
+            placeholder={quotaExhausted ? 'Upgrade to continue coaching' : `What's on your mind, ${name}?`}
             minRows={1}
             maxRows={6}
-            disabled={streaming || !sessionId}
+            disabled={streaming || !sessionId || quotaExhausted}
             className="flex-1 bg-transparent text-[#E8E2DC] placeholder:text-[#3D3630] text-base leading-relaxed resize-none focus:outline-none disabled:opacity-50 font-sans"
           />
           <button
             onClick={sendMessage}
-            disabled={!input.trim() || streaming || !sessionId}
+            disabled={!input.trim() || streaming || !sessionId || quotaExhausted}
             className="shrink-0 w-8 h-8 rounded-xl bg-[#F59E0B] disabled:bg-[#2A2520] disabled:text-[#5C524A] text-[#0A0908] flex items-center justify-center transition-all hover:bg-[#FCD34D] disabled:cursor-not-allowed"
           >
             {streaming ? (
@@ -496,7 +519,7 @@ function SendIcon() {
 }
 
 const STARTERS = [
-  "I've been struggling to stay consistent this week.",
-  "What should I focus on right now?",
-  "I'm feeling stuck and not sure why.",
+  "What's one thing that felt harder than expected this week?",
+  "Where am I avoiding the work I know I should be doing?",
+  "What would today look like if I showed up as the person I'm becoming?",
 ]
