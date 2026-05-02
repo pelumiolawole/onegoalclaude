@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
@@ -15,6 +15,7 @@ export default function SignupPage() {
   const router = useRouter()
   const setAuth = useAuthStore(s => s.setAuth)
 
+  const [preAnswer, setPreAnswer] = useState<string | null>(null)
   const [form, setForm] = useState({
     display_name: '',
     email: '',
@@ -25,6 +26,13 @@ export default function SignupPage() {
   const [loading, setLoading]       = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [showVerificationMessage, setShowVerificationMessage] = useState(false)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('ogp_pre_answer')
+      if (saved) setPreAnswer(saved)
+    }
+  }, [])
 
   function update(field: string, value: string) {
     setForm(f => ({ ...f, [field]: value }))
@@ -126,8 +134,26 @@ export default function SignupPage() {
           <OneGoalLogo size={30} textSize="text-2xl" />
         </Link>
 
-        <h1 className="font-display text-3xl text-[#F5F1ED] mb-2">Begin here</h1>
-        <p className="text-[#7A6E65] mb-8">The interview takes about 15 minutes. That&apos;s where everything starts.</p>
+        {/* Pre-answer echo — shows what they typed on the landing page */}
+        {preAnswer ? (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="mb-8 p-4 rounded-xl bg-[#F59E0B]/6 border border-[#F59E0B]/15"
+          >
+            <p className="text-[#5C524A] text-xs uppercase tracking-widest font-mono mb-2">You said</p>
+            <p className="text-[#C4BBB5] text-sm leading-relaxed italic">"{preAnswer}"</p>
+            <p className="text-[#5C524A] text-xs mt-2">
+              The interview starts here. Create your account to continue.
+            </p>
+          </motion.div>
+        ) : (
+          <>
+            <h1 className="font-display text-3xl text-[#F5F1ED] mb-2">Begin here</h1>
+            <p className="text-[#7A6E65] mb-8">The interview takes about 15 minutes. That&apos;s where everything starts.</p>
+          </>
+        )}
 
         {error && (
           <motion.div

@@ -82,7 +82,6 @@ function DemoPreview() {
       className="relative rounded-2xl border border-white/8 bg-[#0D0B09] overflow-hidden"
       style={{ boxShadow: '0 0 60px rgba(245,158,11,0.06)' }}
     >
-      {/* Mock header */}
       <div className="flex items-center gap-2 px-5 py-3 border-b border-white/5 bg-[#141210]">
         <div className="flex gap-1.5">
           <div className="w-2.5 h-2.5 rounded-full bg-[#FF5F57]" />
@@ -96,7 +95,6 @@ function DemoPreview() {
         </div>
       </div>
 
-      {/* Messages */}
       <div className="p-5 space-y-4 min-h-[320px]">
         <AnimatePresence>
           {DEMO_MESSAGES.slice(0, visibleCount).map((msg, i) => (
@@ -120,7 +118,6 @@ function DemoPreview() {
           ))}
         </AnimatePresence>
 
-        {/* Typing indicator */}
         {visibleCount > 0 && visibleCount < DEMO_MESSAGES.length && DEMO_MESSAGES[visibleCount].role === 'ai' && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -139,9 +136,97 @@ function DemoPreview() {
         )}
       </div>
 
-      {/* Overlay fade at bottom */}
       <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#0D0B09] to-transparent pointer-events-none" />
     </div>
+  )
+}
+
+// ── Pre-interview hook ─────────────────────────────────────────
+function PreInterviewHook() {
+  const router = useRouter()
+  const [answer, setAnswer] = useState('')
+  const [focused, setFocused] = useState(false)
+  const isReady = answer.trim().length >= 10
+
+  function handleStart() {
+    if (!isReady) return
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ogp_pre_answer', answer.trim())
+    }
+    router.push('/signup')
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Enter' && !e.shiftKey && isReady) {
+      e.preventDefault()
+      handleStart()
+    }
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.7, delay: 0.55 }}
+      className="w-full max-w-xl mx-auto"
+    >
+      <div className={`rounded-2xl border transition-all duration-300 overflow-hidden ${
+        focused
+          ? 'border-[#F59E0B]/40 shadow-[0_0_0_4px_rgba(245,158,11,0.07)]'
+          : 'border-white/10'
+      } bg-[#141210]`}>
+        <div className="px-5 pt-5 pb-3">
+          <p className="text-[#F5F1ED] text-base font-medium mb-1 leading-snug">
+            What's the one thing you keep starting and never finishing?
+          </p>
+          <p className="text-[#5C524A] text-xs mb-4">
+            Answer honestly. This becomes the first thing your coach knows about you.
+          </p>
+          <textarea
+            value={answer}
+            onChange={e => setAnswer(e.target.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            onKeyDown={handleKeyDown}
+            rows={3}
+            placeholder="Be specific. 'My business' is not an answer. 'Launching the product I've been building for two years' is."
+            className="w-full bg-transparent text-[#E8E2DC] placeholder:text-[#3D3630] text-sm leading-relaxed resize-none focus:outline-none"
+          />
+        </div>
+
+        <div className="px-4 pb-4 flex items-center justify-between">
+          <span className={`text-xs font-mono transition-colors ${
+            answer.trim().length === 0 ? 'text-[#3D3630]' :
+            isReady ? 'text-[#4ADE80]' : 'text-[#5C524A]'
+          }`}>
+            {answer.trim().length === 0 ? '' : isReady ? 'Ready' : `${10 - answer.trim().length} more characters`}
+          </span>
+          <button
+            onClick={handleStart}
+            disabled={!isReady}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              isReady
+                ? 'bg-[#F59E0B] text-[#0A0908] hover:bg-[#D97706] hover:scale-[1.02] active:scale-[0.98]'
+                : 'bg-[#1E1B18] text-[#3D3630] cursor-not-allowed'
+            }`}
+          >
+            Start the interview
+            {isReady && (
+              <motion.span
+                animate={{ x: [0, 3, 0] }}
+                transition={{ duration: 1.2, repeat: Infinity }}
+              >
+                →
+              </motion.span>
+            )}
+          </button>
+        </div>
+      </div>
+
+      <p className="text-center text-[#3D3630] text-xs mt-3">
+        Free to begin. No card required.
+      </p>
+    </motion.div>
   )
 }
 
@@ -313,7 +398,7 @@ export default function LandingPage() {
 
         <motion.div
           style={{ y: heroParallax, opacity: heroOpacity }}
-          className="relative z-10 max-w-4xl mx-auto"
+          className="relative z-10 max-w-4xl mx-auto w-full"
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
@@ -346,32 +431,8 @@ export default function LandingPage() {
             OneGoal Pro finds your one goal, then coaches you toward the person who achieves it.
           </motion.p>
 
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.55 }}
-            className="flex flex-col items-center justify-center gap-4"
-          >
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full">
-              <Link
-                href="/signup"
-                className="group w-full sm:w-auto px-8 py-4 rounded-2xl bg-[#F59E0B] text-[#0A0908] font-semibold text-base hover:bg-[#D97706] transition-all hover:scale-[1.03] active:scale-[0.98] flex items-center justify-center gap-2"
-              >
-                Start the interview
-                <motion.span
-                  animate={{ x: [0, 4, 0] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                >→</motion.span>
-              </Link>
-              <Link
-                href="/login"
-                className="w-full sm:w-auto px-8 py-4 rounded-2xl border border-white/10 text-[#A09690] text-base hover:border-white/25 hover:text-[#F5F1ED] transition-all"
-              >
-                Sign in
-              </Link>
-            </div>
-            <p className="text-[#5C524A] text-xs">Free to begin. No card required.</p>
-          </motion.div>
+          {/* Pre-interview hook replaces the old CTA buttons */}
+          <PreInterviewHook />
         </motion.div>
 
         <motion.div
@@ -423,7 +484,7 @@ export default function LandingPage() {
             </p>
             <p className="text-[#5C524A] leading-relaxed mb-6">
               There is a difference between knowing and doing. Most apps never go near it.
-              This one starts there.  The interview takes 10-15 minutes. You only do it once.
+              This one starts there. The interview takes 10-15 minutes. You only do it once.
             </p>
             <Link
               href="/signup"
@@ -552,7 +613,7 @@ export default function LandingPage() {
               transition={{ duration: 0.3 }}
               className="p-10 rounded-2xl border border-white/8 bg-[#141210]"
             >
-              <div className="text-5xl font-display text-[#F59E0B] mb-6">90+</div>
+              <div className="text-5xl font-display text-[#F59E0B] mb-6">99+</div>
               <p className="text-[#C4BBB5] text-lg leading-relaxed mb-6">
                 people have committed to one goal.
               </p>

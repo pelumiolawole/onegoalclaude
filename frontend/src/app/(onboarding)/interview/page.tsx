@@ -22,7 +22,15 @@ export default function InterviewPage() {
   const [loading, setLoading]   = useState(false)
   const [phase, setPhase]       = useState('tension')
   const [started, setStarted]   = useState(false)
+  const [preAnswer, setPreAnswer] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('ogp_pre_answer')
+      if (saved) setPreAnswer(saved)
+    }
+  }, [])
 
   useEffect(() => {
     async function loadState() {
@@ -55,9 +63,29 @@ export default function InterviewPage() {
   async function startInterview() {
     setStarted(true)
     setLoading(true)
+
+    // If the user answered the landing page hook, send that as their first message.
+    // Clear localStorage immediately after use.
+    const firstMessage = preAnswer || "I'm ready to begin."
+    const hadPreAnswer = !!preAnswer
+    if (preAnswer && typeof window !== 'undefined') {
+      localStorage.removeItem('ogp_pre_answer')
+      setPreAnswer(null)
+    }
+
     try {
-      const res = await api.onboarding.sendInterviewMessage("I'm ready to begin.")
-      setMessages([{ role: 'assistant', content: res.message }])
+      const res = await api.onboarding.sendInterviewMessage(firstMessage)
+
+      // Show user bubble only if they typed something real on the landing page
+      if (hadPreAnswer) {
+        setMessages([
+          { role: 'user', content: firstMessage },
+          { role: 'assistant', content: res.message },
+        ])
+      } else {
+        setMessages([{ role: 'assistant', content: res.message }])
+      }
+
       setPhase(res.phase)
     } catch (err) {
       console.error(err)
@@ -77,10 +105,6 @@ export default function InterviewPage() {
     try {
       const res = await api.onboarding.sendInterviewMessage(text)
 
-      // Quality gate: completion phrase fired but data was too shallow.
-      // The backend replaces the AI response with a Coach PO-voiced depth prompt.
-      // We display it as a normal assistant message and keep the conversation open.
-      // No routing, no error — the user just gets one more question.
       if ((res as any).needs_more_depth) {
         setMessages([...newMessages, { role: 'assistant', content: res.message }])
         setPhase(res.phase)
@@ -129,15 +153,34 @@ export default function InterviewPage() {
             <span className="text-2xl">&#10022;</span>
           </div>
           <h1 className="font-display text-4xl text-[#F59E0B] mb-4">The Discovery Interview</h1>
-          <p className="text-[#A09690] text-lg leading-relaxed mb-4">
-            Before we build your strategy, we need to understand what you actually want — not the goal you think you should have, but the real one.
-          </p>
-          <p className="text-[#7A6E65] mb-6">This is a conversation. Answer honestly. Take your time.</p>
+
+          {preAnswer ? (
+            <>
+              <p className="text-[#C4BBB5] text-base leading-relaxed mb-4">
+                You already told us something important.
+              </p>
+              <div className="bg-[#141210] border border-[#F59E0B]/15 rounded-xl px-5 py-4 mb-6 text-left">
+                <p className="text-[#5C524A] text-xs uppercase tracking-widest font-mono mb-2">You said</p>
+                <p className="text-[#C4BBB5] text-sm leading-relaxed italic">"{preAnswer}"</p>
+              </div>
+              <p className="text-[#7A6E65] text-sm mb-10">
+                The interview picks up from there. Answer honestly. Take your time.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-[#A09690] text-lg leading-relaxed mb-4">
+                Before we build your strategy, we need to understand what you actually want — not the goal you think you should have, but the real one.
+              </p>
+              <p className="text-[#7A6E65] mb-6">This is a conversation. Answer honestly. Take your time.</p>
+            </>
+          )}
+
           <p className="text-[#3D3630] text-xs mb-10">
             Coach PO is an AI, not a human coach. Your responses are processed by AI to build your goal profile.
           </p>
           <button onClick={startInterview} className="btn btn-primary px-10 h-13 text-base">
-            Begin the interview
+            {preAnswer ? 'Continue the interview' : 'Begin the interview'}
           </button>
         </motion.div>
       </div>
