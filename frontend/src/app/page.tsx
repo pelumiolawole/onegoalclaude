@@ -33,20 +33,39 @@ function Reveal({
 }
 
 // ── Floating orb ───────────────────────────────────────────────
+// CHANGE 2: accepts opacityMultiplier so orbs dim when hook is focused
 function FloatingOrb({
-  size, top, left, delay, duration, opacity,
+  size, top, left, delay, duration, opacity, opacityMultiplier = 1,
 }: {
-  size: number; top: string; left: string; delay: number; duration: number; opacity: number
+  size: number
+  top: string
+  left: string
+  delay: number
+  duration: number
+  opacity: number
+  opacityMultiplier?: number
 }) {
+  const effectiveOpacity = opacity * opacityMultiplier
   return (
     <motion.div
       className="absolute rounded-full pointer-events-none"
       style={{
-        width: size, height: size, top, left, opacity,
+        width: size,
+        height: size,
+        top,
+        left,
         background: 'radial-gradient(circle, rgba(245,158,11,0.4) 0%, transparent 70%)',
       }}
-      animate={{ y: [0, -20, 0], scale: [1, 1.05, 1] }}
-      transition={{ duration, delay, repeat: Infinity, ease: 'easeInOut' }}
+      animate={{
+        y: [0, -20, 0],
+        scale: [1, 1.05, 1],
+        opacity: effectiveOpacity,
+      }}
+      transition={{
+        y: { duration, delay, repeat: Infinity, ease: 'easeInOut' },
+        scale: { duration, delay, repeat: Infinity, ease: 'easeInOut' },
+        opacity: { duration: 0.6, ease: 'easeInOut' },
+      }}
     />
   )
 }
@@ -142,11 +161,25 @@ function DemoPreview() {
 }
 
 // ── Pre-interview hook ─────────────────────────────────────────
-function PreInterviewHook() {
+// CHANGE 2: accepts onFocusChange to notify parent when user starts typing
+function PreInterviewHook({ onFocusChange }: { onFocusChange: (focused: boolean) => void }) {
   const router = useRouter()
   const [answer, setAnswer] = useState('')
   const [focused, setFocused] = useState(false)
   const isReady = answer.trim().length >= 10
+
+  function handleFocus() {
+    setFocused(true)
+    onFocusChange(true)
+  }
+
+  function handleBlur() {
+    setFocused(false)
+    // Keep orbs dimmed if there is already an answer — product has their attention
+    if (answer.trim().length === 0) {
+      onFocusChange(false)
+    }
+  }
 
   function handleStart() {
     if (!isReady) return
@@ -185,8 +218,8 @@ function PreInterviewHook() {
           <textarea
             value={answer}
             onChange={e => setAnswer(e.target.value)}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
             onKeyDown={handleKeyDown}
             rows={3}
             placeholder="Be specific. 'My business' is not an answer. 'Launching the product I've been building for two years' is."
@@ -235,9 +268,16 @@ export default function LandingPage() {
   const { isAuthenticated, user } = useAuthStore()
   const router = useRouter()
   const [billing, setBilling] = useState<'monthly' | 'annual'>('monthly')
+  // CHANGE 2: track hook focus to dim orbs
+  const [hookFocused, setHookFocused] = useState(false)
+
   const { scrollY } = useScroll()
   const heroParallax = useTransform(scrollY, [0, 500], [0, -80])
   const heroOpacity = useTransform(scrollY, [0, 300], [1, 0.3])
+
+  // CHANGE 3: demo blur-to-sharp ref
+  const demoRef = useRef(null)
+  const demoInView = useInView(demoRef, { once: true, margin: '-80px' })
 
   useEffect(() => {
     if (!isAuthenticated || !user) return
@@ -248,6 +288,9 @@ export default function LandingPage() {
     else if (step === 4) router.replace('/activate')
     else router.replace('/dashboard')
   }, [isAuthenticated, user])
+
+  // Orb multiplier — dim to 0.15 when hook is focused
+  const orbMultiplier = hookFocused ? 0.15 : 1
 
   const PLANS = {
     monthly: [
@@ -384,9 +427,11 @@ export default function LandingPage() {
 
       {/* ── Hero ──────────────────────────────────────────── */}
       <section className="relative min-h-screen flex flex-col items-center justify-center px-6 pt-24 pb-16 text-center overflow-hidden">
-        <FloatingOrb size={600} top="20%" left="50%" delay={0} duration={8} opacity={0.07} />
-        <FloatingOrb size={300} top="60%" left="15%" delay={2} duration={10} opacity={0.05} />
-        <FloatingOrb size={200} top="30%" left="75%" delay={4} duration={7} opacity={0.06} />
+
+        {/* CHANGE 2: orbs dim when hook is focused */}
+        <FloatingOrb size={600} top="20%" left="50%" delay={0} duration={8} opacity={0.07} opacityMultiplier={orbMultiplier} />
+        <FloatingOrb size={300} top="60%" left="15%" delay={2} duration={10} opacity={0.05} opacityMultiplier={orbMultiplier} />
+        <FloatingOrb size={200} top="30%" left="75%" delay={4} duration={7} opacity={0.06} opacityMultiplier={orbMultiplier} />
 
         <div
           className="absolute inset-0 pointer-events-none opacity-[0.03]"
@@ -410,16 +455,44 @@ export default function LandingPage() {
             Identity-Based Goal System
           </motion.div>
 
-          <motion.h1
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="font-display text-5xl md:text-7xl lg:text-8xl leading-[1.05] text-[#F5F1ED] mb-4"
+          {/* CHANGE 1: staggered word-level hero entrance with spring physics */}
+          <motion.div
+            className="font-display text-5xl md:text-7xl lg:text-8xl leading-[1.05] mb-4"
+            initial="hidden"
+            animate="visible"
+            variants={{
+              hidden: {},
+              visible: { transition: { staggerChildren: 0.18 } },
+            }}
           >
-            One Goal.{' '}
+            <motion.span
+              className="inline-block text-[#F5F1ED]"
+              variants={{
+                hidden: { opacity: 0, y: 32 },
+                visible: {
+                  opacity: 1,
+                  y: 0,
+                  transition: { type: 'spring', stiffness: 120, damping: 14 },
+                },
+              }}
+            >
+              One Goal.
+            </motion.span>
             <br className="hidden md:block" />
-            <span className="text-[#F59E0B] italic">No Excuses.</span>
-          </motion.h1>
+            <motion.span
+              className="inline-block text-[#F59E0B] italic"
+              variants={{
+                hidden: { opacity: 0, y: 24 },
+                visible: {
+                  opacity: 1,
+                  y: 0,
+                  transition: { type: 'spring', stiffness: 200, damping: 20 },
+                },
+              }}
+            >
+              No Excuses.
+            </motion.span>
+          </motion.div>
 
           <motion.p
             initial={{ opacity: 0, y: 16 }}
@@ -431,8 +504,8 @@ export default function LandingPage() {
             OneGoal Pro finds your one goal, then coaches you toward the person who achieves it.
           </motion.p>
 
-          {/* Pre-interview hook replaces the old CTA buttons */}
-          <PreInterviewHook />
+          {/* CHANGE 2: pass onFocusChange up to parent */}
+          <PreInterviewHook onFocusChange={setHookFocused} />
         </motion.div>
 
         <motion.div
@@ -494,9 +567,15 @@ export default function LandingPage() {
             </Link>
           </Reveal>
 
-          <Reveal delay={0.15}>
+          {/* CHANGE 3: blur-to-sharp scroll entrance replaces Reveal wrapper */}
+          <motion.div
+            ref={demoRef}
+            initial={{ opacity: 0, filter: 'blur(8px)' }}
+            animate={demoInView ? { opacity: 1, filter: 'blur(0px)' } : {}}
+            transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
+          >
             <DemoPreview />
-          </Reveal>
+          </motion.div>
         </div>
       </section>
 
