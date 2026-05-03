@@ -327,6 +327,9 @@ class TaskGeneratorEngine(BaseAIEngine):
             reflection_history_str = await self._get_reflection_history(uid, db)
             progress_context_str = await self._get_progress_context(context)
 
+            # Get day-of-week context signal
+            day_of_week, day_context = self._get_day_context(task_date)
+
             # Build the generation prompt
             system_prompt = get_prompt("task_generator").format(
                 user_context=context_str,
@@ -334,6 +337,8 @@ class TaskGeneratorEngine(BaseAIEngine):
                 task_history=task_history_str,
                 reflection_history=reflection_history_str,
                 progress_context=progress_context_str,
+                day_of_week=day_of_week,
+                day_context=day_context,
             )
 
             # Adjust prompt for backlog tasks
@@ -385,6 +390,7 @@ class TaskGeneratorEngine(BaseAIEngine):
                 task_title=task_data.get("title"),
                 is_backlog=is_backlog,
                 is_fallback=task_data.get("fallback", False),
+                day_of_week=day_of_week,
             )
 
             return {**task_data, "id": str(task_id), "scheduled_date": str(task_date)}
@@ -528,6 +534,56 @@ class TaskGeneratorEngine(BaseAIEngine):
             f"Days since last task: {days_since_last}",
         ]
         return "\n".join(lines)
+
+    def _get_day_context(self, task_date: date) -> tuple[str, str]:
+        """
+        Returns (day_name, day_context_string) for the task generation prompt.
+        Day context is a soft signal — the AI weighs it alongside momentum and scores.
+        Not an override. A user in high momentum on Sunday still gets a challenging task.
+        """
+        day = task_date.strftime("%A")
+        contexts = {
+            "Monday": (
+                "Monday — re-entry day. The user may be coming back after a weekend gap. "
+                "Favour tasks that feel like a clean recommitment to their identity — something "
+                "that resets the anchor rather than continuing mid-thread. Keep friction low "
+                "enough to guarantee completion. A won Monday builds the week."
+            ),
+            "Tuesday": (
+                "Tuesday — the week is finding its rhythm. Energy is typically higher than Monday. "
+                "A good day for tasks that require focus or a degree of stretch. "
+                "If momentum is rising, use it. If it stalled on Monday, Tuesday is the recovery point."
+            ),
+            "Wednesday": (
+                "Wednesday — mid-week. The highest-leverage day of the week for identity work. "
+                "Momentum is either building or has visibly stalled. Calibrate difficulty accordingly. "
+                "A strong Wednesday task often determines whether the week is a win."
+            ),
+            "Thursday": (
+                "Thursday — late-week push. The user knows how the week has gone. "
+                "If it has been strong, a slightly harder task capitalises on momentum. "
+                "If it has been difficult, favour something achievable that closes the week on a completion."
+            ),
+            "Friday": (
+                "Friday — energy and attention are shifting toward the weekend. "
+                "Favour tasks that can be completed and felt within a shorter window. "
+                "Avoid tasks requiring sustained multi-hour focus. "
+                "A task that ends the work week with a clear identity moment works well here."
+            ),
+            "Saturday": (
+                "Saturday — weekend. More time available but context has shifted away from desk work. "
+                "Favour tasks that happen in real life rather than at a screen: physical action, "
+                "a conversation, a real-world experience connected to their goal. "
+                "Identity is built in the world, not just at the desk."
+            ),
+            "Sunday": (
+                "Sunday — reflective and transitional. The week is closing, the next is approaching. "
+                "A good day for consolidation: reviewing the week, clarifying one intention for Monday, "
+                "or completing something that closes a loop. Avoid tasks that feel like starting something large. "
+                "Tasks that help the user arrive at Monday with clarity and purpose are ideal."
+            ),
+        }
+        return day, contexts.get(day, contexts["Monday"])
 
     async def _persist_task(
         self,

@@ -191,6 +191,7 @@ NEVER output anything except the JSON object.
 
 # --- Task Generator v1 -------------------------------------------------------
 # Updated: Added task_history, reflection_history, progress_context placeholders.
+# Updated: Added day_of_week, day_context placeholders for weekly rhythm awareness.
 # Added guidance field to output schema.
 # Strengthened non-repetition enforcement.
 
@@ -228,6 +229,15 @@ Read the task history carefully before generating. Do not generate a task that:
 - Develops the same trait in the same way
 If the history shows 5 consecutive journaling tasks, do not generate another journaling task.
 If the history shows a pattern of avoidance on a specific task type, address that directly or switch approach.
+
+DAY-OF-WEEK CONTEXT:
+Today is {day_of_week}.
+{day_context}
+
+Use this as a soft signal alongside momentum, scores, and history. The day context informs
+the tone and type of task -- it does not override the user's actual state. A user in high
+momentum on a Sunday can still receive a challenging task. A user in low momentum on a
+Wednesday should still get something achievable. Day is one input among many, not the override.
 
 GUIDANCE FIELD:
 The guidance field is not motivational filler. It is 2-3 sentences of specific, practical instruction for this exact task. It must answer: what does doing this task well actually look like in practice? It should be concrete enough that the user could execute without any additional information.
