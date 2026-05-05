@@ -177,7 +177,8 @@ async def get_today_task(
         text("""
             SELECT
                 dt.id, dt.identity_focus, dt.title, dt.description,
-                dt.execution_guidance, dt.time_estimate_minutes,
+                dt.execution_guidance, dt.guidance,
+                dt.time_estimate_minutes,
                 dt.difficulty_level, dt.task_type, dt.status,
                 dt.started_at, dt.completed_at, dt.execution_notes,
                 dt.scheduled_date, dt.generation_context,
@@ -213,7 +214,8 @@ async def get_today_task(
         result = await db.execute(
             text("""
                 SELECT dt.id, dt.identity_focus, dt.title, dt.description,
-                       dt.execution_guidance, dt.time_estimate_minutes,
+                       dt.execution_guidance, dt.guidance,
+                       dt.time_estimate_minutes,
                        dt.difficulty_level, dt.task_type, dt.status,
                        dt.started_at, dt.completed_at, dt.execution_notes,
                        dt.scheduled_date, dt.generation_context,
@@ -377,7 +379,6 @@ async def get_task_history(
     limit_days = min(days, 90)
     since = date.today() - timedelta(days=limit_days)
 
-    # Include ALL past tasks -- pending shown as missed, completed, skipped
     result = await db.execute(
         text("""
             SELECT
@@ -450,7 +451,8 @@ async def get_task_by_date(
         text("""
             SELECT
                 dt.id, dt.identity_focus, dt.title, dt.description,
-                dt.execution_guidance, dt.time_estimate_minutes,
+                dt.execution_guidance, dt.guidance,
+                dt.time_estimate_minutes,
                 dt.difficulty_level, dt.task_type, dt.status,
                 dt.started_at, dt.completed_at, dt.execution_notes,
                 r.id AS reflection_id,
@@ -531,11 +533,10 @@ async def complete_task(
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found or already completed.")
 
-    # FIXED: Insert progress_metrics with proper columns and trigger score update
     await db.execute(
         text("""
             INSERT INTO progress_metrics (
-                user_id, metric_date, task_completed, 
+                user_id, metric_date, task_completed,
                 task_id, completed_at, updated_at
             )
             VALUES (:user_id, :date, TRUE, :task_id, NOW(), NOW())
@@ -551,13 +552,11 @@ async def complete_task(
 
     new_streak = await _update_streak(uid, row.scheduled_date, db)
 
-    # FIXED: Trigger immediate score recalculation
     try:
         updated_scores = await trigger_score_update(db, uid)
         logger.info("scores_updated_after_task", user_id=uid, task_id=task_id, scores=updated_scores)
     except Exception as e:
         logger.error("score_update_failed_after_task", user_id=uid, task_id=task_id, error=str(e))
-        # Don't fail the task completion if scoring fails
 
     await db.commit()
     await _log_engagement(uid, "task_complete", db)
@@ -611,7 +610,6 @@ async def skip_task(
         {"user_id": uid, "task_id": task_id},
     )
 
-    # FIXED: Trigger score recalculation after skip (scores should reflect missed day)
     try:
         updated_scores = await trigger_score_update(db, uid)
         logger.info("scores_updated_after_skip", user_id=uid, task_id=task_id, scores=updated_scores)
@@ -652,6 +650,7 @@ def _format_task(task, task_date: date) -> dict:
         "title": task.title,
         "description": task.description,
         "execution_guidance": task.execution_guidance,
+        "guidance": task.guidance if hasattr(task, "guidance") else None,
         "time_estimate_minutes": task.time_estimate_minutes,
         "difficulty": task.difficulty_level,
         "task_type": task.task_type,
