@@ -847,7 +847,10 @@ async def run_daily_push_notifications() -> None:
         async with get_db_context() as db:
             from sqlalchemy import text
             result = await db.execute(text("""
-                SELECT ps.user_id, ps.endpoint, ps.p256dh, ps.auth, dt.title AS task_title
+                SELECT
+                    ps.user_id, ps.endpoint, ps.p256dh, ps.auth,
+                    dt.title AS task_title,
+                    dt.identity_focus
                 FROM push_subscriptions ps
                 JOIN daily_tasks dt ON dt.user_id = ps.user_id
                     AND dt.scheduled_date = CURRENT_DATE AND dt.status = 'pending'
@@ -865,11 +868,16 @@ async def run_daily_push_notifications() -> None:
         failed_count = 0
         expired_ids = []
 
-        for user_id, endpoint, p256dh, auth, task_title in rows:
+        for user_id, endpoint, p256dh, auth, task_title, identity_focus in rows:
+            # Use identity_focus as the notification body — it tells the user who
+            # they are being today, not just what they are doing. Falls back to
+            # task_title if identity_focus is missing (pre-migration tasks).
+            push_body = identity_focus or task_title or "Your daily task is waiting."
+
             result = send_push_notification(
                 endpoint=endpoint, p256dh=p256dh, auth=auth,
                 title="Your identity task is ready",
-                body=task_title or "Your daily task is waiting for you.",
+                body=push_body,
                 url="/dashboard",
             )
             if result is True:
