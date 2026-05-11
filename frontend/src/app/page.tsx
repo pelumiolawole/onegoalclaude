@@ -296,7 +296,7 @@ export default function LandingPage() {
     monthly: [
       {
         name: 'The Spark',
-        tagline: 'Start here. Prove it works.',
+        tagline: 'Find out if OneGoal Pro is for you. The interview, one daily task, and five coach messages a day to start building the habit.',
         price: '$0',
         period: 'forever',
         features: [
@@ -312,7 +312,7 @@ export default function LandingPage() {
       },
       {
         name: 'The Forge',
-        tagline: 'For people who are serious.',
+        tagline: 'For people who are serious. Unlimited coaching, full progress tracking, and weekly reviews that show you who you\'re becoming.',
         price: '$4.99',
         period: '/month',
         features: [
@@ -328,7 +328,7 @@ export default function LandingPage() {
       },
       {
         name: 'The Identity',
-        tagline: 'For people committed to becoming.',
+        tagline: 'For people who need more than a plan. Everything in The Forge, plus the ability to re-interview when you\'ve outgrown your first goal and need to find the next one.',
         price: '$10.99',
         period: '/month',
         features: [
@@ -346,7 +346,7 @@ export default function LandingPage() {
     annual: [
       {
         name: 'The Spark',
-        tagline: 'Start here. Prove it works.',
+        tagline: 'Find out if OneGoal Pro is for you. The interview, one daily task, and five coach messages a day to start building the habit.',
         price: '$0',
         period: 'forever',
         features: [
@@ -362,7 +362,7 @@ export default function LandingPage() {
       },
       {
         name: 'The Forge',
-        tagline: 'For people who are serious.',
+        tagline: 'For people who are serious. Unlimited coaching, full progress tracking, and weekly reviews that show you who you\'re becoming.',
         price: '$4.99',
         period: '/month',
         annualPrice: '$47.88',
@@ -380,7 +380,7 @@ export default function LandingPage() {
       },
       {
         name: 'The Identity',
-        tagline: 'For people committed to becoming.',
+        tagline: 'For people who need more than a plan. Everything in The Forge, plus the ability to re-interview when you\'ve outgrown your first goal and need to find the next one.',
         price: '$10.99',
         period: '/month',
         annualPrice: '$107.88',
@@ -692,7 +692,7 @@ export default function LandingPage() {
               transition={{ duration: 0.3 }}
               className="p-10 rounded-2xl border border-white/8 bg-[#141210]"
             >
-              <div className="text-5xl font-display text-[#F59E0B] mb-6">99+</div>
+              <div className="text-5xl font-display text-[#F59E0B] mb-6">100+</div>
               <p className="text-[#C4BBB5] text-lg leading-relaxed mb-6">
                 people have committed to one goal.
               </p>
