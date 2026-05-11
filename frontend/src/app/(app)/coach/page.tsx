@@ -13,6 +13,7 @@ interface Message {
   content: string
   streaming?: boolean
   created_at?: string
+  isGreeting?: boolean
 }
 
 interface QuotaWarning {
@@ -74,7 +75,6 @@ function formatDateLabel(dateStr: string): string {
   const today = new Date()
   const yesterday = new Date()
   yesterday.setDate(today.getDate() - 1)
-
   if (date.toDateString() === today.toDateString()) return 'Today'
   if (date.toDateString() === yesterday.toDateString()) return 'Yesterday'
   return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -102,47 +102,104 @@ export default function CoachPage() {
   const [quotaWarning, setQuotaWarning] = useState<QuotaWarning | null>(null)
   const [quotaExhausted, setQuotaExhausted] = useState(false)
   const [dismissedWarnings, setDismissedWarnings] = useState<Set<string>>(new Set())
+  const [taskStarter, setTaskStarter] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const msgId = useRef(0)
 
-  // Load active session
   useEffect(() => {
-    api.coach.getActiveSession()
-      .then(res => {
+    let cancelled = false
+
+    async function init() {
+      try {
+        const res = await api.coach.getActiveSession()
+        if (cancelled) return
+
         setSessionId(res.session_id)
-        setMessages(res.messages.map((m: any) => ({
+
+        const existingMessages: Message[] = (res.messages || []).map((m: any) => ({
           id: String(msgId.current++),
           role: m.role,
           content: m.content,
           created_at: m.created_at,
-        })))
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+        }))
+
+        // Check if today's greeting already exists in restored history
+        const today = new Date().toDateString()
+        const alreadyGreetedToday = existingMessages.some(
+          m => m.role === 'assistant' &&
+               m.created_at &&
+               new Date(m.created_at).toDateString() === today
+        )
+
+        // Fetch greeting — needed for greeting text and task starter button
+        let greetingText: string | null = null
+        let greetingTaskTitle: string | null = null
+        try {
+          const greetingRes = await api.coach.getGreeting()
+          if (!cancelled && greetingRes?.greeting) {
+            greetingText = greetingRes.greeting
+            greetingTaskTitle = greetingRes.task_title
+          }
+        } catch {
+          // Non-fatal — coach still works without greeting
+        }
+
+        if (cancelled) return
+
+        const finalMessages = [...existingMessages]
+
+        // Inject greeting as display-only UI message if not already greeted today
+        if (greetingText && !alreadyGreetedToday) {
+          finalMessages.push({
+            id: String(msgId.current++),
+            role: 'assistant',
+            content: greetingText,
+            created_at: new Date().toISOString(),
+            isGreeting: true,
+          })
+        }
+
+        setMessages(finalMessages)
+
+        // Task-specific starter — appears highlighted at top of starter list
+        if (greetingTaskTitle) {
+          setTaskStarter(`How do I approach "${greetingTaskTitle}" without talking myself out of it?`)
+        }
+
+      } catch {
+        // Session fetch failed — empty state renders
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    init()
+    return () => { cancelled = true }
   }, [])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  async function sendMessage() {
-    if (!input.trim() || streaming || !sessionId) return
-    const text = input.trim()
-    setInput('')
+  async function sendMessage(overrideText?: string) {
+    const textToSend = overrideText || input.trim()
+    if (!textToSend || streaming || !sessionId) return
+    if (!overrideText) setInput('')
     setStreaming(true)
 
-    // Add user message
     const userId = String(msgId.current++)
-    setMessages(prev => [...prev, { id: userId, role: 'user', content: text, created_at: new Date().toISOString() }])
+    setMessages(prev => [...prev, {
+      id: userId, role: 'user', content: textToSend, created_at: new Date().toISOString(),
+    }])
 
-    // Add empty assistant message for streaming
     const aiId = String(msgId.current++)
-    setMessages(prev => [...prev, { id: aiId, role: 'assistant', content: '', streaming: true, created_at: new Date().toISOString() }])
+    setMessages(prev => [...prev, {
+      id: aiId, role: 'assistant', content: '', streaming: true, created_at: new Date().toISOString(),
+    }])
 
     try {
-      const res = await api.coach.streamMessage(sessionId, text)
+      const res = await api.coach.streamMessage(sessionId, textToSend)
 
-      // Non-2xx response — parse the error body and handle appropriately
       if (!res.ok) {
         let errorDetail: any = {}
         try { errorDetail = await res.json() } catch {}
@@ -166,7 +223,6 @@ export default function CoachPage() {
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let fullText = ''
-      // Track whether the current line follows an 'event: system' marker
       let nextLineIsSystemEvent = false
 
       while (true) {
@@ -182,14 +238,12 @@ export default function CoachPage() {
             continue
           }
 
-          // Mark that the next data: line is a system event
           if (line.startsWith('event: system')) {
             nextLineIsSystemEvent = true
             continue
           }
 
           if (line.startsWith('data: ')) {
-            // FIX: do NOT trim() — spaces at the start of tokens are meaningful
             const data = line.slice(6)
 
             if (data === '[DONE]' || data.startsWith('[ERROR]')) {
@@ -197,7 +251,6 @@ export default function CoachPage() {
               break
             }
 
-            // If flagged as system event OR data looks like JSON, try to parse it
             if (nextLineIsSystemEvent || data.trimStart().startsWith('{')) {
               try {
                 const parsed = JSON.parse(data.trim())
@@ -207,13 +260,11 @@ export default function CoachPage() {
                   continue
                 }
               } catch {
-                // Not valid JSON — fall through to treat as chat text
+                // Not JSON — treat as chat text
               }
             }
 
             nextLineIsSystemEvent = false
-
-            // Regular chat text — preserve spaces, unescape newlines
             fullText += data.replace(/\\n/g, '\n')
             setMessages(prev =>
               prev.map(m => m.id === aiId ? { ...m, content: fullText } : m)
@@ -222,12 +273,10 @@ export default function CoachPage() {
         }
       }
 
-      // Mark streaming done
       setMessages(prev =>
         prev.map(m => m.id === aiId ? { ...m, streaming: false } : m)
       )
     } catch (err: any) {
-      // 429 = quota exhausted — surface upgrade UI, remove the empty assistant bubble
       if (err?.status === 429 && err?.detail?.code === 'quota_exceeded') {
         setMessages(prev => prev.filter(m => m.id !== aiId))
         setQuotaExhausted(true)
@@ -259,9 +308,19 @@ export default function CoachPage() {
   }
 
   const name = user?.display_name?.split(' ')[0] || 'you'
-
-  // Don't show if dismissed
   const showWarning = quotaWarning && !dismissedWarnings.has(quotaWarning.message)
+
+  // Starters: task-specific first (highlighted), then generic
+  const starters = [
+    ...(taskStarter ? [{ text: taskStarter, highlight: true }] : []),
+    { text: "What's one thing that felt harder than expected this week?", highlight: false },
+    { text: "Where am I avoiding the work I know I should be doing?", highlight: false },
+    { text: "What would today look like if I showed up as the person I'm becoming?", highlight: false },
+  ]
+
+  // Show starters below greeting only — disappear once user has replied
+  const lastMessage = messages[messages.length - 1]
+  const showStarters = !loading && lastMessage?.isGreeting && !streaming
 
   return (
     <div className="flex flex-col h-screen max-h-screen pb-16 md:pb-0">
@@ -274,6 +333,7 @@ export default function CoachPage() {
         <div>
           <p className="text-[#E8E2DC] text-sm font-medium">Your Coach</p>
           <p className="text-[#3D3630] text-xs">Knows your goal, your history, and where you are</p>
+          <p className="text-[#2A2520] text-[10px] mt-0.5">AI coach — not a human</p>
         </div>
       </div>
 
@@ -286,7 +346,7 @@ export default function CoachPage() {
           </div>
         )}
 
-        {/* Empty state */}
+        {/* Empty state — only when no messages at all */}
         {!loading && messages.length === 0 && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -304,13 +364,13 @@ export default function CoachPage() {
               It knows your full history — use that.
             </p>
             <div className="space-y-2">
-              {STARTERS.map(s => (
+              {starters.map(s => (
                 <button
-                  key={s}
-                  onClick={() => setInput(s)}
+                  key={s.text}
+                  onClick={() => sendMessage(s.text)}
                   className="w-full text-left text-sm px-4 py-2.5 rounded-xl bg-[#141210] border border-white/5 text-[#7A6E65] hover:text-[#A09690] hover:border-white/10 transition-all"
                 >
-                  {s}
+                  {s.text}
                 </button>
               ))}
             </div>
@@ -328,15 +388,12 @@ export default function CoachPage() {
               className={`relative mb-6 overflow-hidden rounded-2xl border ${quotaConfig[quotaWarning.level].border} bg-gradient-to-r ${quotaConfig[quotaWarning.level].gradient} backdrop-blur-sm`}
             >
               <div className="relative flex items-start gap-4 p-5">
-                {/* Icon */}
                 <div className={`flex-shrink-0 rounded-xl ${quotaConfig[quotaWarning.level].iconBg} p-2.5`}>
                   {(() => {
                     const Icon = quotaConfig[quotaWarning.level].icon
                     return <Icon className={`h-5 w-5 ${quotaConfig[quotaWarning.level].iconColor}`} />
                   })()}
                 </div>
-
-                {/* Content */}
                 <div className="flex-1 min-w-0">
                   <h4 className={`font-semibold text-sm ${quotaConfig[quotaWarning.level].titleColor}`}>
                     {quotaWarning.message}
@@ -344,15 +401,11 @@ export default function CoachPage() {
                   <p className={`mt-1 text-sm ${quotaConfig[quotaWarning.level].textColor}`}>
                     {quotaWarning.subtext}
                   </p>
-
-                  {/* Usage bar */}
                   <div className="mt-4 flex items-center gap-3">
                     <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
                       <motion.div
                         initial={{ width: 0 }}
-                        animate={{
-                          width: `${(quotaWarning.usage.used / quotaWarning.usage.limit) * 100}%`
-                        }}
+                        animate={{ width: `${(quotaWarning.usage.used / quotaWarning.usage.limit) * 100}%` }}
                         transition={{ duration: 0.8, delay: 0.2 }}
                         className={`h-full rounded-full ${
                           quotaWarning.level === 'critical' ? 'bg-red-500' :
@@ -365,8 +418,6 @@ export default function CoachPage() {
                     </span>
                   </div>
                 </div>
-
-                {/* Actions */}
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => window.location.href = quotaWarning.action.link}
@@ -388,6 +439,7 @@ export default function CoachPage() {
           )}
         </AnimatePresence>
 
+        {/* Message thread */}
         <AnimatePresence initial={false}>
           {messages.map((msg, index) => {
             const prevMsg = messages[index - 1]
@@ -401,36 +453,63 @@ export default function CoachPage() {
                   <DateSeparator label={formatDateLabel(msg.created_at!)} />
                 )}
                 <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              {msg.role === 'assistant' && (
-                <div className="w-7 h-7 rounded-full bg-[#F59E0B]/15 border border-[#F59E0B]/20 flex items-center justify-center mr-2.5 mt-0.5 shrink-0">
-                  <span className="text-[#F59E0B] text-[10px]">✦</span>
-                </div>
-              )}
-              <div
-                className={`max-w-[82%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
-                  msg.role === 'user'
-                    ? 'bg-[#F59E0B]/10 border border-[#F59E0B]/15 text-[#E8E2DC] rounded-tr-sm'
-                    : 'bg-[#1E1B18] border border-white/5 text-[#C4BBB5] rounded-tl-sm'
-                }`}
-              >
-                {msg.content || (msg.streaming ? <TypingDots /> : '')}
-                {msg.streaming && msg.content && (
-                  <motion.span
-                    animate={{ opacity: [1, 0] }}
-                    transition={{ duration: 0.5, repeat: Infinity }}
-                    className="inline-block w-0.5 h-3.5 bg-[#F59E0B] ml-0.5 align-middle"
-                  />
-                )}
-              </div>
-            </motion.div>
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  {msg.role === 'assistant' && (
+                    <div className="w-7 h-7 rounded-full bg-[#F59E0B]/15 border border-[#F59E0B]/20 flex items-center justify-center mr-2.5 mt-0.5 shrink-0">
+                      <span className="text-[#F59E0B] text-[10px]">✦</span>
+                    </div>
+                  )}
+                  <div
+                    className={`max-w-[82%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                      msg.role === 'user'
+                        ? 'bg-[#F59E0B]/10 border border-[#F59E0B]/15 text-[#E8E2DC] rounded-tr-sm'
+                        : 'bg-[#1E1B18] border border-white/5 text-[#C4BBB5] rounded-tl-sm'
+                    }`}
+                  >
+                    {msg.content || (msg.streaming ? <TypingDots /> : '')}
+                    {msg.streaming && msg.content && (
+                      <motion.span
+                        animate={{ opacity: [1, 0] }}
+                        transition={{ duration: 0.5, repeat: Infinity }}
+                        className="inline-block w-0.5 h-3.5 bg-[#F59E0B] ml-0.5 align-middle"
+                      />
+                    )}
+                  </div>
+                </motion.div>
               </React.Fragment>
             )
           })}
+        </AnimatePresence>
+
+        {/* Starter prompts — shown below greeting, disappear after first user reply */}
+        <AnimatePresence>
+          {showStarters && (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 4 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-2 pl-9"
+            >
+              {starters.slice(0, 3).map(s => (
+                <button
+                  key={s.text}
+                  onClick={() => sendMessage(s.text)}
+                  className={`w-full text-left text-sm px-4 py-2.5 rounded-xl border transition-all ${
+                    s.highlight
+                      ? 'bg-[#F59E0B]/8 border-[#F59E0B]/25 text-[#C4BBB5] hover:bg-[#F59E0B]/12 hover:border-[#F59E0B]/35'
+                      : 'bg-[#141210] border-white/5 text-[#7A6E65] hover:text-[#A09690] hover:border-white/10'
+                  }`}
+                >
+                  {s.text}
+                </button>
+              ))}
+            </motion.div>
+          )}
         </AnimatePresence>
 
         <div ref={bottomRef} />
@@ -439,7 +518,7 @@ export default function CoachPage() {
       {/* Input */}
       <div className="border-t border-white/5 p-4 shrink-0">
 
-        {/* Quota exhausted — persistent upgrade card shown above input */}
+        {/* Quota exhausted */}
         <AnimatePresence>
           {quotaExhausted && (
             <motion.div
@@ -478,7 +557,7 @@ export default function CoachPage() {
             className="flex-1 bg-transparent text-[#E8E2DC] placeholder:text-[#3D3630] text-base leading-relaxed resize-none focus:outline-none disabled:opacity-50 font-sans"
           />
           <button
-            onClick={sendMessage}
+            onClick={() => sendMessage()}
             disabled={!input.trim() || streaming || !sessionId || quotaExhausted}
             className="shrink-0 w-8 h-8 rounded-xl bg-[#F59E0B] disabled:bg-[#2A2520] disabled:text-[#5C524A] text-[#0A0908] flex items-center justify-center transition-all hover:bg-[#FCD34D] disabled:cursor-not-allowed"
           >
@@ -517,9 +596,3 @@ function SendIcon() {
     </svg>
   )
 }
-
-const STARTERS = [
-  "What's one thing that felt harder than expected this week?",
-  "Where am I avoiding the work I know I should be doing?",
-  "What would today look like if I showed up as the person I'm becoming?",
-]
