@@ -126,11 +126,14 @@ class EmailService:
         task_title: str,
         task_description: str,
         identity_anchor: str,
+        identity_focus: str,
         app_url: str,
     ) -> bool:
         """
         Send daily task notification email.
         Triggered by scheduler after task generation at user's local midnight.
+        Subject uses identity_focus (daily task-level identity statement) as the
+        psychological hook. identity_anchor (goal-level) renders inside the email body.
         """
         if not self.enabled:
             logger.warning("daily_task_email_disabled", email=to_email)
@@ -143,7 +146,7 @@ class EmailService:
             response = resend.Emails.send({
                 "from": self.from_header,
                 "to": to_email,
-                "subject": f"Your identity task for today — {task_title}",
+                "subject": f"Today you're becoming: {identity_focus}",
                 "html": f"""
                 <!DOCTYPE html>
                 <html>

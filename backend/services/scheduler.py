@@ -180,7 +180,7 @@ async def _send_daily_task_email_for_user(user_id: str) -> None:
                 SELECT
                     u.email, u.display_name,
                     dt.title AS task_title, dt.description AS task_description,
-                    g.required_identity
+                    g.required_identity, dt.identity_focus
                 FROM users u
                 JOIN goals g ON g.user_id = u.id AND g.status IN ('active', 'approaching_completion')
                 JOIN daily_tasks dt ON dt.user_id = u.id
@@ -193,12 +193,13 @@ async def _send_daily_task_email_for_user(user_id: str) -> None:
             if not row:
                 logger.warning("daily_task_email_no_task_found", user_id=user_id)
                 return
-            email, display_name, task_title, task_description, identity_anchor = row
+            email, display_name, task_title, task_description, identity_anchor, identity_focus = row
 
         await email_service.send_daily_task_email(
             to_email=email, display_name=display_name,
             task_title=task_title, task_description=task_description or "",
             identity_anchor=identity_anchor or "the best version of yourself",
+            identity_focus=identity_focus or task_title or "",
             app_url=settings.frontend_url,
         )
     except Exception as e:
