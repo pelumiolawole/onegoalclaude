@@ -262,14 +262,14 @@ class EmailService:
             response = resend.Emails.send({
                 "from": self.from_header,
                 "to": to_email,
-                "subject": f"You have {missed_tasks} task{'s' if missed_tasks != 1 else ''} waiting",
+                "subject": "Your goal is still waiting for you",
                 "html": f"""
                 <!DOCTYPE html>
                 <html>
                 <head>
                     <meta charset="UTF-8">
                     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>You have tasks waiting</title>
+                    <title>Your goal is still waiting</title>
                 </head>
                 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #0A0908;">
                     <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #0A0908; padding: 40px 0;">
@@ -288,18 +288,18 @@ class EmailService:
                                             </p>
 
                                             <p style="margin: 0 0 20px 0; font-size: 16px; color: #A09690; line-height: 1.6;">
-                                                It's been {days_inactive} days. Your goal hasn't moved — but it hasn't gone anywhere either.
+                                                It's been a few days. Your goal hasn't moved — but it hasn't gone anywhere either.
                                             </p>
 
                                             <p style="margin: 0 0 28px 0; font-size: 16px; color: #A09690; line-height: 1.6;">
-                                                You have <strong style="color: #F59E0B;">{missed_tasks} task{'s' if missed_tasks != 1 else ''}</strong> waiting. They were built for you. They're not going to complete themselves.
+                                                Today's task is ready. Start with that one. Just that one.
                                             </p>
 
                                             <table width="100%" cellpadding="0" cellspacing="0" style="margin: 0 0 28px 0;">
                                                 <tr>
                                                     <td align="center">
                                                         <a href="{dashboard_url}" style="display: inline-block; padding: 14px 36px; background-color: #F59E0B; color: #0A0908; text-decoration: none; border-radius: 8px; font-size: 15px; font-weight: 600;">
-                                                            Get back on track →
+                                                            Open today's task →
                                                         </a>
                                                     </td>
                                                 </tr>
