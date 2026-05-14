@@ -146,7 +146,7 @@ class EmailService:
             response = resend.Emails.send({
                 "from": self.from_header,
                 "to": to_email,
-                "subject": f"Today you're becoming: {identity_focus}",
+                "subject": identity_focus,
                 "html": f"""
                 <!DOCTYPE html>
                 <html>
