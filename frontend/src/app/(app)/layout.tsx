@@ -8,11 +8,12 @@ import { useAuthStore } from '@/stores/auth'
 import OneGoalLogo from '@/components/OneGoalLogo'
 
 const NAV = [
-  { href: '/dashboard', label: 'Today',    icon: HomeIcon },
-  { href: '/coach',     label: 'Coach',    icon: CoachIcon },
-  { href: '/progress',  label: 'Progress', icon: ChartIcon },
-  { href: '/goal',      label: 'Goal',     icon: GoalIcon },
-  { href: '/settings',  label: 'Profile',  icon: ProfileIcon },
+  { href: '/dashboard',  label: 'Today',     icon: HomeIcon },
+  { href: '/coach',      label: 'Coach',     icon: CoachIcon },
+  { href: '/evolution',  label: 'Evolution', icon: FlameIcon },
+  { href: '/progress',   label: 'Progress',  icon: ChartIcon },
+  { href: '/goal',       label: 'Goal',      icon: GoalIcon },
+  { href: '/settings',   label: 'Profile',   icon: ProfileIcon },
 ]
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -181,7 +182,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all ${
+                  className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${
                     active ? 'text-[#F59E0B]' : 'text-[#3D3630]'
                   }`}
                 >
@@ -205,7 +206,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all ${
+                className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${
                   active ? 'text-[#F59E0B]' : 'text-[#3D3630]'
                 }`}
               >
@@ -235,6 +236,14 @@ function CoachIcon({ size = 16 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  )
+}
+
+function FlameIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
     </svg>
   )
 }
